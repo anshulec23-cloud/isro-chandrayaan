@@ -306,7 +306,7 @@
 </div>
 </div>
 <div class="mt-8">
-<button class="w-full btn-amber py-3 font-label-xs text-label-xs tracking-widest flex items-center justify-center gap-2">
+<button id="align-btn" class="w-full btn-amber py-3 font-label-xs text-label-xs tracking-widest flex items-center justify-center gap-2">
 <span class="material-symbols-outlined text-[16px]">compare_arrows</span> INITIATE ALIGNMENT
                         </button>
 </div>
@@ -333,4 +333,111 @@
 <span class="font-label-xs text-[9px]">CONFIG</span>
 </a>
 </nav>
+
+<div id="status-overlay" class="fixed inset-0 bg-background/80 z-[100] hidden flex-col items-center justify-center backdrop-blur-sm">
+    <div class="tech-panel p-8 max-w-md w-full">
+        <h3 class="text-primary font-headline-md mb-4" id="status-title">ALIGNMENT SEQUENCE INITIATED</h3>
+        <div class="font-telemetry-data text-on-surface-variant mb-6 text-sm" id="status-log">Connecting to pipeline...</div>
+        <div class="w-full h-2 bg-surface-variant rounded overflow-hidden">
+            <div id="status-progress" class="h-full bg-primary w-0 transition-all duration-300"></div>
+        </div>
+        <div id="status-metrics" class="mt-6 hidden grid grid-cols-2 gap-4">
+            <div class="tech-divider pb-2">
+                <div class="font-label-xs text-on-surface-variant mb-1">RMSE</div>
+                <div class="font-telemetry-data text-primary text-[14px]" id="metric-rmse">-</div>
+            </div>
+            <div class="tech-divider pb-2">
+                <div class="font-label-xs text-on-surface-variant mb-1">SSIM</div>
+                <div class="font-telemetry-data text-primary text-[14px]" id="metric-ssim">-</div>
+            </div>
+            <div class="tech-divider pb-2">
+                <div class="font-label-xs text-on-surface-variant mb-1">INLIERS</div>
+                <div class="font-telemetry-data text-primary text-[14px]" id="metric-inliers">-</div>
+            </div>
+            <div class="tech-divider pb-2">
+                <div class="font-label-xs text-on-surface-variant mb-1">STATUS</div>
+                <div class="font-telemetry-data text-green-400 text-[14px]">SUCCESS</div>
+            </div>
+        </div>
+        <button id="status-close" class="mt-8 w-full btn-amber py-2 font-label-xs hidden">ACKNOWLEDGE</button>
+    </div>
+</div>
+
+<script>
+    document.getElementById('align-btn').addEventListener('click', async () => {
+        const overlay = document.getElementById('status-overlay');
+        const log = document.getElementById('status-log');
+        const progress = document.getElementById('status-progress');
+        const metrics = document.getElementById('status-metrics');
+        const closeBtn = document.getElementById('status-close');
+        
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+        log.textContent = 'Requesting pipeline execution...';
+        progress.style.width = '10%';
+        metrics.classList.add('hidden');
+        closeBtn.classList.add('hidden');
+
+        try {
+            const req = {
+                source_path: 'data/raw/ch2_ohr_ncp_20260130T1309574436_d_img_d18/calibrated/20260130/ch2_ohr_ncp_20260130T1309574436_d_img_d18.xml',
+                reference_path: 'data/raw/ch2_tmc_ncn_20260813T0627378557_d_img_d18/calibrated/20260813/ch2_tmc_ncn_20260813T0627378557_d_img_d18.xml',
+                source_sensor: 'OHRC',
+                ref_sensor: 'TMC2'
+            };
+            
+            const res = await fetch('http://localhost:8000/api/v1/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(req)
+            });
+            const data = await res.json();
+            
+            if (data.job_id) {
+                log.textContent = `Job established: ${data.job_id.split('-')[0]}...`;
+                progress.style.width = '20%';
+                
+                // Connect WebSocket
+                const ws = new WebSocket(`ws://localhost:8000/api/v1/ws/jobs/${data.job_id}`);
+                ws.onmessage = (event) => {
+                    const status = JSON.parse(event.data);
+                    log.textContent = `[${status.stage}] ${status.message || 'Processing'}`;
+                    if (status.progress) {
+                        progress.style.width = `${Math.max(20, status.progress * 100)}%`;
+                    }
+                    
+                    if (status.status === 'completed') {
+                        progress.style.width = '100%';
+                        document.getElementById('status-title').textContent = 'ALIGNMENT COMPLETE';
+                        fetch(`http://localhost:8000/api/v1/jobs/${data.job_id}`)
+                            .then(r => r.json())
+                            .then(jobData => {
+                                if (jobData.metrics) {
+                                    document.getElementById('metric-rmse').textContent = jobData.metrics.rmse ? jobData.metrics.rmse.toFixed(3) : 'N/A';
+                                    document.getElementById('metric-ssim').textContent = jobData.metrics.ssim ? jobData.metrics.ssim.toFixed(3) : 'N/A';
+                                    document.getElementById('metric-inliers').textContent = jobData.metrics.inlier_count ? jobData.metrics.inlier_count : 'N/A';
+                                }
+                                metrics.classList.remove('hidden');
+                                closeBtn.classList.remove('hidden');
+                            });
+                        ws.close();
+                    } else if (status.status === 'failed') {
+                        log.textContent = `FAILED: ${status.message}`;
+                        progress.classList.replace('bg-primary', 'bg-error');
+                        closeBtn.classList.remove('hidden');
+                        ws.close();
+                    }
+                };
+            }
+        } catch (err) {
+            log.textContent = `ERROR: ${err.message}`;
+            closeBtn.classList.remove('hidden');
+        }
+    });
+
+    document.getElementById('status-close').addEventListener('click', () => {
+        document.getElementById('status-overlay').classList.add('hidden');
+        document.getElementById('status-overlay').classList.remove('flex');
+    });
+</script>
 </body></html>
