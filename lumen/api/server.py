@@ -1,7 +1,11 @@
 import logging
 import uuid
+import random
+import time
+import os
+import json
 from contextlib import asynccontextmanager
-from typing import Dict, Any
+from typing import Dict, Any, List
 from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, UploadFile, File, Form, WebSocket, HTTPException, BackgroundTasks, Depends
@@ -194,6 +198,27 @@ async def upload_file(file: UploadFile = File(...)):
 async def health_check():
     """Health check endpoint including GPU status mock."""
     return {"status": "healthy", "gpu": "available"}
+
+# --- New Mock Endpoints for Dashboard ---
+
+@app.get("/api/v1/datasets")
+async def list_datasets():
+    """List available datasets in data/raw."""
+    from pathlib import Path
+    base_path = Path("data/raw")
+    datasets = []
+    if base_path.exists():
+        for item in base_path.iterdir():
+            if item.is_dir():
+                datasets.append({
+                    "id": item.name,
+                    "name": item.name,
+                    "path": str(item),
+                    "size_mb": round(random.uniform(50.0, 500.0), 2),
+                    "sensor": "OHRC" if "ohr" in item.name else "TMC2" if "tmc" in item.name else "IIRS",
+                    "date": "2023-11-02T14:22:10Z"
+                })
+    return {"datasets": datasets}
 
 
 if __name__ == "__main__":

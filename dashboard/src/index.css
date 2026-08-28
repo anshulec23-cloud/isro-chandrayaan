@@ -1,0 +1,101 @@
+@config "../tailwind.config.js";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { 
+    background-color: theme('colors.background'); 
+    color: theme('colors.on-background'); 
+    overflow-x: hidden; 
+  }
+}
+
+@layer components {
+  .glass-hud { 
+    background: rgba(13, 14, 18, 0.7); 
+    backdrop-filter: blur(20px); 
+    -webkit-backdrop-filter: blur(20px); 
+  }
+  
+  .tech-panel { 
+    border: 1px solid theme('colors.outline-variant'); 
+    background-color: theme('colors.surface-container-lowest'); 
+    position: relative; 
+  }
+  
+  .tech-panel-active { 
+    border: 1px solid theme('colors.primary'); 
+    box-shadow: inset 0 0 10px rgba(255, 193, 116, 0.1); 
+  }
+  
+  .module-id { 
+    position: absolute; 
+    top: 4px; 
+    right: 8px; 
+    font-family: 'JetBrains Mono', monospace; 
+    font-size: 10px; 
+    color: theme('colors.on-surface-variant'); 
+    opacity: 0.5; 
+  }
+  
+  .crosshair { 
+    position: absolute; 
+    width: 20px; 
+    height: 20px; 
+    pointer-events: none; 
+  }
+  
+  .crosshair::before, .crosshair::after { 
+    content: ''; 
+    position: absolute; 
+    background-color: theme('colors.primary'); 
+  }
+  
+  .crosshair::before { 
+    width: 100%; 
+    height: 1px; 
+    top: 50%; 
+    left: 0; 
+    transform: translateY(-50%); 
+  }
+  
+  .crosshair::after { 
+    width: 1px; 
+    height: 100%; 
+    left: 50%; 
+    top: 0; 
+    transform: translateX(-50%); 
+  }
+  
+  .tech-divider { 
+    border-bottom: 1px dashed theme('colors.outline-variant'); 
+  }
+  
+  .btn-amber { 
+    border: 1px solid theme('colors.primary'); 
+    background: transparent; 
+    color: theme('colors.primary'); 
+    transition: all 0.2s ease; 
+  }
+  
+  .btn-amber:hover { 
+    background: theme('colors.primary'); 
+    color: theme('colors.on-primary'); 
+  }
+  
+  .telemetry-chip { 
+    background: rgba(255,255,255,0.1); 
+    display: inline-flex; 
+    align-items: center; 
+    gap: 4px; 
+  }
+  
+  .grid-bg { 
+    background-image: 
+      linear-gradient(theme('colors.surface-variant') 1px, transparent 1px), 
+      linear-gradient(90deg, theme('colors.surface-variant') 1px, transparent 1px); 
+    background-size: 20px 20px; 
+    background-position: center; 
+  }
+}
