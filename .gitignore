@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyTorch and models
+*.pt
+*.pth
+weights/
+
+# Data
+data/
+raw/
+processed/
+*.img
+*.xml
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+.venv
+venv/
+ENV/
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage

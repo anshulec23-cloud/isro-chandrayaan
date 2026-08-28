@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lunar Mission Control - Geometry</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;700&amp;family=JetBrains+Mono:wght@500;700&amp;family=Geist:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#353437",
+                        "tertiary": "#cbccd5",
+                        "outline": "#a08e7a",
+                        "surface-container": "#201f22",
+                        "surface-dim": "#131316",
+                        "surface": "#131316",
+                        "error": "#ffb4ab",
+                        "surface-variant": "#353437",
+                        "secondary-fixed-dim": "#c7c6cb",
+                        "on-secondary": "#2f3035",
+                        "surface-container-lowest": "#0e0e10",
+                        "primary-fixed-dim": "#ffb95f",
+                        "inverse-surface": "#e5e1e5",
+                        "inverse-on-surface": "#313033",
+                        "secondary": "#c7c6cb",
+                        "on-surface-variant": "#d8c3ad",
+                        "on-tertiary": "#2e3038",
+                        "primary-fixed": "#ffddb8",
+                        "primary-container": "#f59e0b",
+                        "secondary-fixed": "#e3e2e7",
+                        "on-background": "#e5e1e5",
+                        "background": "#131316",
+                        "on-secondary-container": "#b5b4ba",
+                        "tertiary-fixed-dim": "#c5c6cf",
+                        "inverse-primary": "#855300",
+                        "on-tertiary-fixed": "#191b22",
+                        "surface-container-high": "#2a2a2c",
+                        "on-error": "#690005",
+                        "on-primary-fixed": "#2a1700",
+                        "primary": "#ffc174",
+                        "on-surface": "#e5e1e5",
+                        "on-primary": "#472a00",
+                        "surface-bright": "#3a393b",
+                        "on-primary-container": "#613b00",
+                        "surface-tint": "#ffb95f",
+                        "surface-container-low": "#1c1b1e",
+                        "tertiary-container": "#b0b0ba",
+                        "error-container": "#93000a",
+                        "on-tertiary-fixed-variant": "#45464e",
+                        "on-secondary-fixed": "#1a1b20",
+                        "on-tertiary-container": "#42434b",
+                        "tertiary-fixed": "#e2e2ec",
+                        "on-secondary-fixed-variant": "#46464b",
+                        "on-error-container": "#ffdad6",
+                        "outline-variant": "#534434",
+                        "on-primary-fixed-variant": "#653e00",
+                        "secondary-container": "#46464b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin": "32px",
+                        "unit": "4px",
+                        "module-padding": "24px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Space Grotesk"],
+                        "body-base": ["Geist"],
+                        "display-lg": ["Space Grotesk"],
+                        "telemetry-data": ["JetBrains Mono"],
+                        "headline-md-mobile": ["Space Grotesk"],
+                        "label-xs": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["32px", { "lineHeight": "1.2", "fontWeight": "400" }],
+                        "body-base": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "300" }],
+                        "telemetry-data": ["14px", { "lineHeight": "1.4", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-md-mobile": ["24px", { "lineHeight": "1.2", "fontWeight": "400" }],
+                        "label-xs": ["11px", { "lineHeight": "1", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: theme('colors.background'); color: theme('colors.on-background'); overflow-x: hidden; }
+        .glass-hud { background: rgba(13, 14, 18, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+        .tech-panel { border: 1px solid theme('colors.outline-variant'); background-color: theme('colors.surface-container-lowest'); position: relative; }
+        .tech-panel-active { border: 1px solid theme('colors.primary'); box-shadow: inset 0 0 10px rgba(255, 193, 116, 0.1); }
+        .module-id { position: absolute; top: 4px; right: 8px; font-family: 'JetBrains Mono'; font-size: 10px; color: theme('colors.on-surface-variant'); opacity: 0.5; }
+        .crosshair { position: absolute; width: 20px; height: 20px; pointer-events: none; }
+        .crosshair::before, .crosshair::after { content: ''; position: absolute; background-color: theme('colors.primary'); }
+        .crosshair::before { width: 100%; height: 1px; top: 50%; left: 0; transform: translateY(-50%); }
+        .crosshair::after { width: 1px; height: 100%; left: 50%; top: 0; transform: translateX(-50%); }
+        .tech-divider { border-bottom: 1px dashed theme('colors.outline-variant'); }
+        .btn-amber { border: 1px solid theme('colors.primary'); background: transparent; color: theme('colors.primary'); transition: all 0.2s ease; }
+        .btn-amber:hover { background: theme('colors.primary'); color: theme('colors.on-primary'); }
+        .telemetry-chip { background: rgba(255,255,255,0.1); display: inline-flex; items-center: center; gap: 4px; }
+        
+        /* Grid background pattern */
+        .grid-bg { background-image: linear-gradient(theme('colors.surface-variant') 1px, transparent 1px), linear-gradient(90deg, theme('colors.surface-variant') 1px, transparent 1px); background-size: 20px 20px; background-position: center; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin h-16 bg-background/80 backdrop-blur-xl border-b border-outline-variant flat no shadows hidden md:flex">
+<div class="flex items-center gap-8">
+<h1 class="font-display-lg text-[24px] text-primary tracking-tighter uppercase whitespace-nowrap">LUNAR MISSION CONTROL</h1>
+<nav class="flex gap-6">
+<a class="text-on-surface-variant font-medium hover:text-primary transition-colors duration-200 font-label-xs text-label-xs" href="#">TELEMETRY</a>
+<a class="text-primary font-bold border-b-2 border-primary pb-1 font-label-xs text-label-xs uppercase" href="#">MAPPING</a>
+<a class="text-on-surface-variant font-medium hover:text-primary transition-colors duration-200 font-label-xs text-label-xs" href="#">PIPELINE</a>
+<a class="text-on-surface-variant font-medium hover:text-primary transition-colors duration-200 font-label-xs text-label-xs" href="#">DATASETS</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="btn-amber font-label-xs text-label-xs px-4 py-2 uppercase">LIVE FEED</button>
+<span class="material-symbols-outlined text-primary cursor-pointer hover:text-primary-fixed-dim" style="font-variation-settings: 'FILL' 0;">settings</span>
+<span class="material-symbols-outlined text-primary cursor-pointer hover:text-primary-fixed-dim" style="font-variation-settings: 'FILL' 0;">notifications_active</span>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] z-40 flex flex-col bg-surface-container-lowest/70 backdrop-blur-2xl docked left-0 h-full w-64 border-r border-outline-variant flat no shadows hidden md:flex justify-between">
+<div>
+<div class="p-6 border-b border-outline-variant">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden border border-outline">
+<img alt="Mission Commander" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAlxZjf0d30_6If2kjdiBfLUzzd-8P_1A3pJ5d2WqIDBOLjmeI5khniN5f9J-wCxtUHQ4emG9KLkKw1-il-n5gd0VkFXzX7a9qLp81EEEdInTHWxUs2TrD_Ol_0GdOHSSUbDjZNg16zU9EiqY56EjN9EXc67NU4NyOjQAdELSniTYiHuaoJLffcDEG7Dmlmllz9bltfzo55wtA34Fv917ODrd0a14yCG3_dIiPGWwT274jtyKzoK4cssQ"/>
+</div>
+<div>
+<div class="font-label-xs text-primary">SECTOR 7-G</div>
+<div class="font-telemetry-data text-telemetry-data text-[10px] text-on-surface-variant">ORBITAL ALT: 112KM</div>
+</div>
+</div>
+</div>
+<nav class="flex flex-col mt-4">
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-variant/30 hover:bg-primary/10 hover:text-primary font-label-xs text-label-xs" href="#">
+<span class="material-symbols-outlined text-[18px]">sensors</span> SENSOR
+                </a>
+<a class="flex items-center gap-3 px-6 py-3 bg-primary-container/20 text-primary border-l-2 border-primary translate-x-1 transition-all font-label-xs text-label-xs" href="#">
+<span class="material-symbols-outlined text-[18px]">architecture</span> GEOMETRY
+                </a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-variant/30 hover:bg-primary/10 hover:text-primary font-label-xs text-label-xs" href="#">
+<span class="material-symbols-outlined text-[18px]">analytics</span> METRICS
+                </a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-variant/30 hover:bg-primary/10 hover:text-primary font-label-xs text-label-xs" href="#">
+<span class="material-symbols-outlined text-[18px]">warning</span> ALERTS
+                </a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-variant/30 hover:bg-primary/10 hover:text-primary font-label-xs text-label-xs" href="#">
+<span class="material-symbols-outlined text-[18px]">list_alt</span> LOGS
+                </a>
+</nav>
+</div>
+<div class="mb-4">
+<nav class="flex flex-col">
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-variant/30 hover:bg-primary/10 hover:text-primary font-label-xs text-label-xs" href="#">
+<span class="material-symbols-outlined text-[18px]">memory</span> DIAGNOSTICS
+                </a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-variant/30 hover:bg-primary/10 hover:text-primary font-label-xs text-label-xs" href="#">
+<span class="material-symbols-outlined text-[18px]">settings_input_component</span> SYSTEM
+                </a>
+</nav>
+<div class="px-6 mt-4">
+<button class="w-full text-center text-on-surface-variant border border-outline-variant py-2 font-label-xs text-label-xs hover:text-primary hover:border-primary transition-colors">COLLAPSE PANEL</button>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 w-full md:pl-64 md:pt-16 pt-0 pb-14 md:pb-0 h-[100vh] flex flex-col grid-bg">
+<div class="flex-1 flex flex-col md:flex-row p-4 gap-4 h-full relative overflow-hidden">
+<!-- Left Panel: Source Observation -->
+<div class="tech-panel w-full md:w-1/4 flex flex-col z-10 glass-hud shrink-0 h-full">
+<span class="module-id">SRC-OBS-01</span>
+<div class="p-module-padding border-b border-outline-variant flex justify-between items-center bg-surface/50">
+<h2 class="font-headline-md text-headline-md text-primary uppercase text-[20px]">Source Obs</h2>
+<span class="telemetry-chip font-telemetry-data text-telemetry-data px-2 py-1 rounded text-[10px]">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div> IIRS
+                    </span>
+</div>
+<div class="p-4 flex-1 overflow-y-auto">
+<div class="w-full h-48 border border-outline-variant mb-6 relative overflow-hidden">
+<div class="w-full h-full bg-cover bg-center grayscale contrast-125 opacity-80" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAk5S1y2Tr1kJj2MVi8kRmupA0y0C7vor8bpwPB64aZekoj6KvYBpyTsq6KAypOuFqGlCUyrnIso7KN-KWkgunvWMOUmgY4AeLjlf_hMKiBA08WrXEDpq5H_2VHJ3bkIoEirslg41C0r4biGgsMfWEbJMJWLLxRJBMxKEU9RXg-3NV_PzUC9HoQatsz3yNgAHdfX9G3OSwRJ9FwE2VdkLW0EE9xEL6UADmJAcqRNX_7bhY4cxGxlC3rLQ')"></div>
+<div class="absolute inset-0 border border-primary/30"></div>
+<div class="crosshair top-1/2 left-1/2"></div>
+<div class="absolute bottom-2 left-2 font-telemetry-data text-[10px] bg-background/80 px-1 text-primary">LAT: 12.44N LON: 45.22E</div>
+</div>
+<div class="space-y-4">
+<div class="tech-divider pb-2">
+<div class="font-label-xs text-on-surface-variant mb-1">SENSOR IDENTIFIER</div>
+<div class="font-telemetry-data text-on-surface text-[14px]">IIRS-INFRA-88</div>
+</div>
+<div class="tech-divider pb-2">
+<div class="font-label-xs text-on-surface-variant mb-1">GROUND SAMPLE DIST (GSD)</div>
+<div class="font-telemetry-data text-primary text-[14px]">80.00 m/px</div>
+</div>
+<div class="tech-divider pb-2">
+<div class="font-label-xs text-on-surface-variant mb-1">SUN ELEVATION</div>
+<div class="font-telemetry-data text-on-surface text-[14px]">42.7°</div>
+</div>
+<div class="tech-divider pb-2">
+<div class="font-label-xs text-on-surface-variant mb-1">AZIMUTH ANGLE</div>
+<div class="font-telemetry-data text-on-surface text-[14px]">175.2°</div>
+</div>
+<div class="tech-divider pb-2">
+<div class="font-label-xs text-on-surface-variant mb-1">ACQUISITION TIME</div>
+<div class="font-telemetry-data text-on-surface text-[12px]">2023-10-27T08:14:22Z</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Center Panel: 3D Geometry Viz -->
+<div class="tech-panel tech-panel-active flex-1 h-full z-0 relative overflow-hidden flex flex-col">
+<span class="module-id">GEO-VIZ-00</span>
+<div class="absolute top-4 left-4 z-20">
+<div class="font-label-xs text-primary mb-1 bg-background/80 px-2 py-1 border border-outline-variant inline-block">ACQUISITION GEOMETRY VIEW</div>
+</div>
+<!-- Center Viz Area -->
+<div class="flex-1 w-full h-full relative">
+<!-- Background texture simulating moon surface -->
+<div class="absolute inset-0 w-full h-full bg-cover bg-center opacity-30 grayscale" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCyI8RRV9AduL79vOB8wH1gx2RMJ-9r-jU_iu6Jat6Q00AaHijYmKhy9pxNqXwMQMBq-iOxOQS3Qh1lqDFeEDpW4LUE2cXpt1Th6-S88LDkhrV1qq5NCEzXNHYomu9EmCfF2L23nOyqgCIqlHZL51uKTvVqSlEWfO3nXRxGP64diJ2r9gNnRMACyVuOqRXpxb7WeHZQjFHj_Asxr2WLEgc4A51lk8wa7WjhpY_2GF0Z1ktnu-yP_DFkrg')"></div>
+<!-- Abstract representation of the footprints -->
+<div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 border-2 border-primary/20 rotate-12 flex items-center justify-center">
+<div class="w-1/2 h-full border border-primary/50 relative">
+<div class="absolute inset-0 bg-primary/5"></div>
+<div class="absolute -top-6 left-0 font-telemetry-data text-[10px] text-primary">IIRS FOOTPRINT</div>
+</div>
+<div class="w-1/4 h-1/2 border border-on-surface relative -ml-12 mt-20 rotate-[-15deg] bg-surface-container-highest/40 backdrop-blur-sm">
+<div class="absolute -bottom-6 right-0 font-telemetry-data text-[10px] text-on-surface">OHRC FOOTPRINT</div>
+<div class="crosshair top-1/2 left-1/2 scale-50"></div>
+</div>
+</div>
+<!-- Vector Lines -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+<line stroke="theme('colors.on-surface-variant')" stroke-dasharray="4 4" stroke-width="1" x1="20%" x2="50%" y1="20%" y2="50%"></line>
+<line stroke="#ffc174" stroke-dasharray="2 2" stroke-width="1" x1="80%" x2="55%" y1="10%" y2="45%"></line>
+<circle cx="80%" cy="10%" fill="#ffc174" r="4"></circle>
+<text fill="#ffc174" font-family="JetBrains Mono" font-size="10px" x="82%" y="10%">SUN VECTOR</text>
+</svg>
+</div>
+<!-- Bottom HUD Overlay -->
+<div class="absolute bottom-4 w-full px-8 z-20 flex justify-between items-end pointer-events-none">
+<div class="bg-background/80 p-2 border border-outline-variant pointer-events-auto">
+<div class="font-telemetry-data text-[10px] text-on-surface-variant">PITCH: +2.4°</div>
+<div class="font-telemetry-data text-[10px] text-on-surface-variant">YAW: -0.8°</div>
+<div class="font-telemetry-data text-[10px] text-on-surface-variant">ROLL: 0.0°</div>
+</div>
+<div class="flex gap-2 pointer-events-auto">
+<button class="w-8 h-8 flex items-center justify-center border border-outline-variant bg-surface hover:border-primary text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[16px]">zoom_in</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center border border-outline-variant bg-surface hover:border-primary text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[16px]">3d_rotation</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right Panel: Reference Observation -->
+<div class="tech-panel w-full md:w-1/4 flex flex-col z-10 glass-hud shrink-0 h-full">
+<span class="module-id">REF-OBS-02</span>
+<div class="p-module-padding border-b border-outline-variant flex justify-between items-center bg-surface/50">
+<h2 class="font-headline-md text-headline-md text-on-surface uppercase text-[20px]">Reference</h2>
+<span class="telemetry-chip font-telemetry-data text-telemetry-data px-2 py-1 rounded text-[10px]">
+<div class="w-2 h-2 rounded-full bg-surface-variant"></div> OHRC
+                    </span>
+</div>
+<div class="p-4 flex-1 overflow-y-auto">
+<div class="w-full h-48 border border-outline-variant mb-6 relative overflow-hidden">
+<div class="w-full h-full bg-cover bg-center grayscale contrast-150" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCxhiLvJpoOhZNoE_wjhupfsmM7aGf7Bnh7bH6AoNYTdXqQnPj14GVVX_ADJGFQisYbFUVO6IZRL8vBXGvGww3HYkSraCzVNoCNvjgm-pDGhwBo6BzsLsWrW5wPjLyM71BI8jPHAcuxKfnHlyynbB4C1PY-zjG7rluU_odxzU0z5LtDaKx2Nb8TaalvW5RoHgAvP2b9jwQ-tMDcYcvLrcNpB8tV_SLv4HNoQO6M9SkhZXn24SMvSJMsxA')"></div>
+<div class="absolute inset-0 border border-on-surface/30"></div>
+<div class="absolute top-0 right-0 p-1 bg-background/90 border-l border-b border-outline-variant">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">center_focus_strong</span>
+</div>
+</div>
+<div class="space-y-4">
+<div class="tech-divider pb-2">
+<div class="font-label-xs text-on-surface-variant mb-1">SENSOR IDENTIFIER</div>
+<div class="font-telemetry-data text-on-surface text-[14px]">OHRC-HIRES-02</div>
+</div>
+<div class="tech-divider pb-2">
+<div class="font-label-xs text-on-surface-variant mb-1">GROUND SAMPLE DIST (GSD)</div>
+<div class="font-telemetry-data text-on-surface text-[14px]">0.25 m/px</div>
+</div>
+<div class="tech-divider pb-2">
+<div class="font-label-xs text-on-surface-variant mb-1">SUN ELEVATION</div>
+<div class="font-telemetry-data text-on-surface text-[14px]">45.1°</div>
+</div>
+<div class="tech-divider pb-2">
+<div class="font-label-xs text-on-surface-variant mb-1">AZIMUTH ANGLE</div>
+<div class="font-telemetry-data text-on-surface text-[14px]">176.8°</div>
+</div>
+<div class="tech-divider pb-2">
+<div class="font-label-xs text-on-surface-variant mb-1">ACQUISITION TIME</div>
+<div class="font-telemetry-data text-on-surface text-[12px]">2023-11-02T14:22:10Z</div>
+</div>
+</div>
+<div class="mt-8">
+<button class="w-full btn-amber py-3 font-label-xs text-label-xs tracking-widest flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[16px]">compare_arrows</span> INITIATE ALIGNMENT
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-center items-center gap-gutter h-14 border-t border-outline-variant bg-background/90 backdrop-blur-md flat no shadows md:hidden">
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-6 py-1 hover:text-primary-fixed-dim transition-all" href="#">
+<span class="material-symbols-outlined mb-1 text-[20px]">landscape</span>
+<span class="font-label-xs text-[9px]">SURFACE</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-6 py-1 hover:text-primary-fixed-dim transition-all" href="#">
+<span class="material-symbols-outlined mb-1 text-[20px]">explore</span>
+<span class="font-label-xs text-[9px]">ORBIT</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary bg-primary/10 rounded-xl px-6 py-1 scale-90" href="#">
+<span class="material-symbols-outlined mb-1 text-[20px]">rocket_launch</span>
+<span class="font-label-xs text-[9px]">MISSION</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-6 py-1 hover:text-primary-fixed-dim transition-all" href="#">
+<span class="material-symbols-outlined mb-1 text-[20px]">settings_input_antenna</span>
+<span class="font-label-xs text-[9px]">CONFIG</span>
+</a>
+</nav>
+</body></html>
