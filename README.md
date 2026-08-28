@@ -68,39 +68,68 @@ graph TD
     class Feature Extraction & Matching sub;
 ```
 
-## 💻 Quick Start
+## 🚀 Quick Start Guide (v1.1)
 
+Welcome to **Lunar Mission Control**. 
+
+### Prerequisites (Data)
+The PRADAN portal requires an ISRO login to download data. To test this pipeline, download overlapping OHRC and TMC-2 `.xml` and `.img` PDS4 files and place them into `data/raw/` (e.g., `data/raw/ch2_ohr_ncp...`).
+
+### Option A: Local Python Install
 ```bash
 # Clone the repository
 git clone https://github.com/BLITZcomm/isro-chandrayaan.git
 cd isro-chandrayaan
 
-# Install dependencies (development mode)
-pip install -e .
+# Install the package and all AI/CV dependencies
+pip install -e ".[dev]"
 
-# Run the registration pipeline
-python -m lumen.pipeline.orchestrator \
-  --source path/to/source.img \
-  --reference path/to/reference.img
+# Start the FastAPI backend and serve the UI
+python -m lumen.cli serve --port 8000
 ```
 
-## 📁 Project Structure
+### Option B: Docker Compose (Recommended)
+We include a fully configured production environment with PyTorch and CUDA support.
+```bash
+# Build and start the container
+docker-compose up --build
+```
+
+### Using the Dashboard
+1. Navigate to: **http://localhost:8000/dashboard**
+2. You will see the **Lunar Mission Control - Geometry** panel.
+3. Click **INITIATE ALIGNMENT** to process the data via WebSocket and view progress.
+
+### Command Line Usage
+To run headlessly on large datasets:
+```bash
+python -m lumen.cli register \
+    --source data/raw/ch2_ohr.../ch2_ohr.xml \
+    --reference data/raw/ch2_tmc.../ch2_tmc.xml \
+    --source-sensor OHRC \
+    --ref-sensor TMC2
+```
+
+## 📂 Project Structure
 
 ```text
 isro-chandrayaan/
 ├── lumen/
-│   ├── core/              # Core algorithms and data models
-│   ├── pipeline/          # Orchestration and workflow logic
-│   ├── features/          # SuperPoint, LightGlue, RIFT2 implementations
-│   ├── geometry/          # Transformations and MAGSAC++
-│   ├── photometry/        # Lommel-Seeliger/Minnaert normalization
-│   └── api/               # FastAPI endpoints
-├── ui/                    # React + Tailwind dashboard (Lunar Ops Command)
-├── tests/                 # Unit and integration tests
-├── data/                  # Sample datasets and weights
-├── notebooks/             # Exploratory analysis and tutorials
-├── requirements.txt       # Project dependencies
-└── README.md              # Project documentation
+│   ├── api/               # FastAPI endpoints & WebSocket server
+│   ├── features/          # DeepMatcher (SuperPoint+LightGlue), RIFT2, GridSampler
+│   ├── geometry/          # MAGSAC++, TPS outlier rejection, Sub-pixel phase corr
+│   ├── ingest/            # PDS4 XML parsing & Metadata extraction
+│   ├── pipeline/          # Orchestrator wiring the full pipeline
+│   ├── preprocess/        # Photometric (Lommel-Seeliger) & Radiometric
+│   ├── registration/      # Affine/Perspective warping
+│   ├── cli.py             # Rich CLI interface
+│   └── config.py          # Pydantic v2 settings
+├── dashboard/             # Frontend HTML/JS (Tailwind, Mission Control UI)
+├── tests/                 # Pytest suite
+├── data/                  # PRADAN PDS4 datasets
+├── Dockerfile             # NVIDIA CUDA production image
+├── docker-compose.yml     # Container orchestration
+└── pyproject.toml         # Build system & dependencies
 ```
 
 ## 🛠️ Technology Stack
