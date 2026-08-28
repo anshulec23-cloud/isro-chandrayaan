@@ -33,8 +33,8 @@ class PipelineOptions(BaseModel):
 class RegistrationRequest(BaseModel):
     source_sensor: SensorType
     reference_sensor: SensorType
-    source_dataset_id: str
-    reference_dataset_id: str
+    source_path: str
+    reference_path: str
     options: Optional[PipelineOptions] = None
     
     model_config = ConfigDict(extra="ignore")
@@ -64,6 +64,7 @@ class JobStatus(BaseModel):
     progress: float = Field(default=0.0, ge=0.0, le=100.0)
     stage_name: str = ""
     metrics: Optional[Dict[str, Any]] = None
+    image_url: Optional[str] = None
 
 
 class MatchPoint(BaseModel):

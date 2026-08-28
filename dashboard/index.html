@@ -229,7 +229,7 @@
 <!-- Center Viz Area -->
 <div class="flex-1 w-full h-full relative">
 <!-- Background texture simulating moon surface -->
-<div class="absolute inset-0 w-full h-full bg-cover bg-center opacity-30 grayscale" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCyI8RRV9AduL79vOB8wH1gx2RMJ-9r-jU_iu6Jat6Q00AaHijYmKhy9pxNqXwMQMBq-iOxOQS3Qh1lqDFeEDpW4LUE2cXpt1Th6-S88LDkhrV1qq5NCEzXNHYomu9EmCfF2L23nOyqgCIqlHZL51uKTvVqSlEWfO3nXRxGP64diJ2r9gNnRMACyVuOqRXpxb7WeHZQjFHj_Asxr2WLEgc4A51lk8wa7WjhpY_2GF0Z1ktnu-yP_DFkrg')"></div>
+<div id="result-image" class="absolute inset-0 w-full h-full bg-cover bg-center grayscale" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCyI8RRV9AduL79vOB8wH1gx2RMJ-9r-jU_iu6Jat6Q00AaHijYmKhy9pxNqXwMQMBq-iOxOQS3Qh1lqDFeEDpW4LUE2cXpt1Th6-S88LDkhrV1qq5NCEzXNHYomu9EmCfF2L23nOyqgCIqlHZL51uKTvVqSlEWfO3nXRxGP64diJ2r9gNnRMACyVuOqRXpxb7WeHZQjFHj_Asxr2WLEgc4A51lk8wa7WjhpY_2GF0Z1ktnu-yP_DFkrg'); opacity: 0.3"></div>
 <!-- Abstract representation of the footprints -->
 <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 border-2 border-primary/20 rotate-12 flex items-center justify-center">
 <div class="w-1/2 h-full border border-primary/50 relative">
@@ -446,6 +446,18 @@
                                     document.getElementById('metric-rmse').textContent = jobData.metrics.rmse ? jobData.metrics.rmse.toFixed(3) : 'N/A';
                                     document.getElementById('metric-ssim').textContent = jobData.metrics.ssim ? jobData.metrics.ssim.toFixed(3) : 'N/A';
                                     document.getElementById('metric-inliers').textContent = jobData.metrics.inlier_count ? jobData.metrics.inlier_count : 'N/A';
+                                }
+                                if (jobData.image_url) {
+                                    const resultImg = document.getElementById('result-image');
+                                    resultImg.style.backgroundImage = `url('${jobData.image_url}')`;
+                                    resultImg.style.opacity = '1.0';
+                                    resultImg.classList.remove('grayscale');
+                                    
+                                    // Hide abstract footprints since we have real image now
+                                    const footprintDiv = resultImg.nextElementSibling;
+                                    if (footprintDiv && footprintDiv.classList.contains('rotate-12')) {
+                                        footprintDiv.style.display = 'none';
+                                    }
                                 }
                                 metrics.classList.remove('hidden');
                                 closeBtn.classList.remove('hidden');

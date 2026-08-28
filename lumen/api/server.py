@@ -94,8 +94,24 @@ def run_registration_task(job_id: str, req: RegistrationRequest):
             dem_path=None,
             options=req.options.model_dump() if req.options else None
         )
+        
+        # Save output image to serve it
+        output_dir = Path("dashboard/outputs")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        out_filename = f"{job_id}.jpg"
+        out_path = output_dir / out_filename
+        
+        import cv2
+        import numpy as np
+        # Normalize and save the image
+        img_out = result.registered_image
+        if img_out.dtype != np.uint8:
+            img_out = np.clip(img_out * 255.0, 0, 255).astype(np.uint8)
+        cv2.imwrite(str(out_path), img_out)
+        
         jobs[job_id]["status"] = "completed"
         jobs[job_id]["result_metrics"] = result.metrics
+        jobs[job_id]["image_url"] = f"/dashboard/outputs/{out_filename}"
     except Exception as e:
         logger.error(f"Job {job_id} failed: {e}")
         jobs[job_id]["status"] = "failed"
@@ -134,7 +150,8 @@ async def get_job_status(job_id: str):
         status=job["status"],
         progress=job.get("progress", 0.0),
         stage_name=job.get("stage", ""),
-        metrics=job.get("result_metrics")
+        metrics=job.get("result_metrics"),
+        image_url=job.get("image_url")
     )
 
 
