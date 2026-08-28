@@ -184,14 +184,37 @@ class RegistrationPipeline:
         label = parse_pds4(path)
         img = load_binary_image(path)
         meta = extract_metadata(label)
+        
+        # Downsample extremely large images to prevent OOM
+        MAX_DIM = 2048
+        if img.shape[0] > MAX_DIM or img.shape[1] > MAX_DIM:
+            logger.info(f"Downsampling massive image {img.shape} to fit {MAX_DIM} max dim")
+            import cv2
+            scale = MAX_DIM / max(img.shape[0], img.shape[1])
+            new_shape = (int(img.shape[1] * scale), int(img.shape[0] * scale))
+            img = cv2.resize(img, new_shape, interpolation=cv2.INTER_AREA)
+            
         return img, meta
 
     def _preprocess(self, image: np.ndarray, metadata: Dict[str, Any], dem: Optional[np.ndarray] = None) -> np.ndarray:
-        logger.debug("Applying radiometric & photometric preprocessing")
-        img_clahe = apply_clahe(image)
-        img_float = normalize_to_float(img_clahe)
-        img_photo = photometric_normalize(img_float, metadata, dem=dem)
-        return img_photo
+        logger.debug("Applying radiometric and photometric normalization")
+        # Radiometric
+        img_float = normalize_to_float(image)
+        
+        # Photometric (Lommel-Seeliger)
+        sun_el = metadata.get('solar_elevation', 45.0)
+        view_el = metadata.get('instrument_elevation', 90.0)
+        phase_ang = metadata.get('phase_angle', 45.0)
+        
+        inc = np.full(img_float.shape, 90.0 - sun_el)
+        emi = np.full(img_float.shape, 90.0 - view_el)
+        phase = np.full(img_float.shape, phase_ang)
+        
+        img_photo, _, _ = photometric_normalize(img_float, inc, emi, phase)
+        
+        # CLAHE enhancement
+        img_enhanced = apply_clahe(img_photo)
+        return img_enhanced
 
     def _extract_features(self, image0: np.ndarray, image1: np.ndarray, method: str, 
                           sensor0: str, sensor1: str) -> Dict[str, Any]:
@@ -215,18 +238,21 @@ class RegistrationPipeline:
         logger.warning("Bridge registration logic skeleton. Falling back to direct RIFT2.")
         return self._extract_features(image0, image1, "rift2", sensor0, sensor1)
 
-    def _estimate_geometry(self, match_data: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        kp0 = match_data['keypoints0']
-        kp1 = match_data['keypoints1']
+    def _estimate_geometry(self, matches: Dict[str, Any]) -> Tuple[Any, np.ndarray, np.ndarray]:
+        logger.debug("Estimating geometric transform")
+        pts0 = matches['keypoints0']
+        pts1 = matches['keypoints1']
         
-        result = estimate_transform_magsac(kp0, kp1)
-        transform = result.matrix
-        inliers_mask = result.inlier_mask
+        transform, mask = estimate_transform_magsac(pts0, pts1)
         
-        inliers_idx = np.where(inliers_mask)[0]
-        outliers_idx = np.where(~inliers_mask)[0]
+        if mask is not None:
+            inliers = mask.ravel().astype(bool)
+        else:
+            inliers = np.zeros(len(pts0), dtype=bool)
+            
+        outliers = np.logical_not(inliers)
         
-        return transform, inliers_idx, outliers_idx
+        return transform, pts0[inliers], pts0[outliers]
 
     def _register(self, source: np.ndarray, reference: np.ndarray, transform: np.ndarray) -> np.ndarray:
         return warp_image(source, transform, reference.shape)

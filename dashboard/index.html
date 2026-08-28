@@ -306,9 +306,35 @@
 </div>
 </div>
 <div class="mt-8">
-<button id="align-btn" class="w-full btn-amber py-3 font-label-xs text-label-xs tracking-widest flex items-center justify-center gap-2">
-<span class="material-symbols-outlined text-[16px]">compare_arrows</span> INITIATE ALIGNMENT
-                        </button>
+    <div class="mb-4">
+        <label class="font-label-xs text-on-surface-variant block mb-1">SOURCE XML PATH</label>
+        <input type="text" id="source-path" value="data/raw/ch2_ohr_ncp_20260130T1309574436_d_img_d18/data/calibrated/20260130/ch2_ohr_ncp_20260130T1309574436_d_img_d18.xml" class="w-full bg-surface-container text-on-surface border border-outline p-2 font-telemetry-data text-[10px]" />
+    </div>
+    <div class="mb-4">
+        <label class="font-label-xs text-on-surface-variant block mb-1">REFERENCE XML PATH</label>
+        <input type="text" id="ref-path" value="data/raw/ch2_tmc_ncn_20260813T0627378557_d_img_d18/data/calibrated/20260813/ch2_tmc_ncn_20260813T0627378557_d_img_d18.xml" class="w-full bg-surface-container text-on-surface border border-outline p-2 font-telemetry-data text-[10px]" />
+    </div>
+    <div class="flex gap-2 mb-4">
+        <div class="flex-1">
+            <label class="font-label-xs text-on-surface-variant block mb-1">SOURCE SENSOR</label>
+            <select id="source-sensor" class="w-full bg-surface-container text-on-surface border border-outline p-2 font-telemetry-data text-[12px]">
+                <option value="OHRC" selected>OHRC</option>
+                <option value="TMC2">TMC2</option>
+                <option value="IIRS">IIRS</option>
+            </select>
+        </div>
+        <div class="flex-1">
+            <label class="font-label-xs text-on-surface-variant block mb-1">REF SENSOR</label>
+            <select id="ref-sensor" class="w-full bg-surface-container text-on-surface border border-outline p-2 font-telemetry-data text-[12px]">
+                <option value="OHRC">OHRC</option>
+                <option value="TMC2" selected>TMC2</option>
+                <option value="IIRS">IIRS</option>
+            </select>
+        </div>
+    </div>
+    <button id="align-btn" class="w-full btn-amber py-3 font-label-xs tracking-widest flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-[16px]">compare_arrows</span> INITIATE ALIGNMENT
+    </button>
 </div>
 </div>
 </div>
@@ -380,25 +406,29 @@
 
         try {
             const req = {
-                source_path: 'data/raw/ch2_ohr_ncp_20260130T1309574436_d_img_d18/data/calibrated/20260130/ch2_ohr_ncp_20260130T1309574436_d_img_d18.xml',
-                reference_path: 'data/raw/ch2_tmc_ncn_20260813T0627378557_d_img_d18/data/calibrated/20260813/ch2_tmc_ncn_20260813T0627378557_d_img_d18.xml',
-                source_sensor: 'OHRC',
-                ref_sensor: 'TMC2'
+                source_path: document.getElementById('source-path').value,
+                reference_path: document.getElementById('ref-path').value,
+                source_sensor: document.getElementById('source-sensor').value,
+                ref_sensor: document.getElementById('ref-sensor').value
             };
             
-            const res = await fetch('http://localhost:8000/api/v1/register', {
+            const res = await fetch(`http://${window.location.host}/api/v1/register`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(req)
             });
             const data = await res.json();
             
+            if (!res.ok) {
+                throw new Error(data.detail || 'Registration failed');
+            }
+
             if (data.job_id) {
                 log.textContent = `Job established: ${data.job_id.split('-')[0]}...`;
                 progress.style.width = '20%';
                 
                 // Connect WebSocket
-                const ws = new WebSocket(`ws://localhost:8000/api/v1/ws/jobs/${data.job_id}`);
+                const ws = new WebSocket(`ws://${window.location.host}/api/v1/ws/jobs/${data.job_id}`);
                 ws.onmessage = (event) => {
                     const status = JSON.parse(event.data);
                     log.textContent = `[${status.stage}] ${status.message || 'Processing'}`;
@@ -409,7 +439,7 @@
                     if (status.status === 'completed') {
                         progress.style.width = '100%';
                         document.getElementById('status-title').textContent = 'ALIGNMENT COMPLETE';
-                        fetch(`http://localhost:8000/api/v1/jobs/${data.job_id}`)
+                        fetch(`http://${window.location.host}/api/v1/jobs/${data.job_id}`)
                             .then(r => r.json())
                             .then(jobData => {
                                 if (jobData.metrics) {
