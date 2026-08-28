@@ -12,7 +12,7 @@ from lumen.ingest.metadata import extract_metadata, compute_scale_ratio, get_bri
 from lumen.preprocess.radiometric import apply_clahe, normalize_to_float
 from lumen.preprocess.photometric import photometric_normalize
 from lumen.features.deep_matcher import DeepMatcher
-from lumen.features.rift2 import RIFT2Matcher
+from lumen.features.rift2 import match_rift2
 from lumen.geometry.outlier_reject import estimate_transform_magsac
 from lumen.registration.warp import warp_image, create_registered_product
 from lumen.evaluation.metrics import compute_rmse, compute_ssim, compute_inlier_ratio, create_checkerboard
@@ -182,7 +182,7 @@ class RegistrationPipeline:
     def _ingest(self, path: Union[str, Path]) -> Tuple[np.ndarray, Dict[str, Any]]:
         logger.debug(f"Ingesting {path}")
         label = parse_pds4(path)
-        img = load_binary_image(label)
+        img = load_binary_image(path)
         meta = extract_metadata(label)
         return img, meta
 
@@ -205,8 +205,7 @@ class RegistrationPipeline:
             matcher = DeepMatcher()
             return matcher.match(image0, image1)
         elif method == "rift2":
-            matcher = RIFT2Matcher()
-            return matcher.match(image0, image1)
+            return match_rift2(image0, image1)
         else:
             raise ValueError(f"Unknown matcher: {method}")
 

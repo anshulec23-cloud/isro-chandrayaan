@@ -23,12 +23,13 @@ ENV C_INCLUDE_PATH=/usr/include/gdal
 
 # Install pip dependencies
 COPY pyproject.toml .
-# Normally we would run pip install . but skipping heavy install in mock
-RUN pip install hatchling fastapi uvicorn pydantic numpy
-
-# Copy project files
+COPY README.md .
 COPY lumen/ /app/lumen/
+COPY dashboard/ /app/dashboard/
+
+RUN pip install --upgrade pip && \
+    pip install .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "lumen.api.server:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "lumen.cli", "serve", "--port", "8000"]
