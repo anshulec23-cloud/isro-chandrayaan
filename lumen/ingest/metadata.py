@@ -4,10 +4,14 @@ Metadata structures and utilities for Chandrayaan-2 payloads.
 
 import math
 import logging
-from typing import Dict, Any, Tuple, Optional
+from pathlib import Path
+from typing import Dict, Any, Tuple, Optional, Union
+
+from lumen.ingest.pds4_parser import MissingMetadataError
 
 __all__ = [
     'SENSOR_SPECS',
+    'MissingMetadataError',
     'compute_phase_angle',
     'get_bridge_sensor',
     'compute_scale_ratio',
@@ -144,13 +148,97 @@ def detect_product_level(product_id: str) -> str:
         return 'L0'
     
     return 'UNKNOWN'
-def extract_metadata(label: Any) -> Dict[str, Any]:
-    """Extract standard metadata dictionary from a PDS4 label object."""
+
+
+def _get_val(obj: Any, keys: list, default: Any = None) -> Any:
+    """Helper to retrieve attribute or dict value across potential field name aliases."""
+    if isinstance(obj, dict):
+        for k in keys:
+            if k in obj and obj[k] is not None:
+                return obj[k]
+    else:
+        for k in keys:
+            if hasattr(obj, k):
+                val = getattr(obj, k)
+                if val is not None:
+                    return val
+    return default
+
+
+def extract_metadata(label: Any, file_name: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
+    """Extract standard metadata dictionary from a PDS4 label dictionary or object.
+    
+    Validates that required geometric and illumination fields (sun_azimuth,
+    sun_elevation, orbit_position/spacecraft_altitude, and pixel_resolution/gsd)
+    are present. Fails loudly with MissingMetadataError if any required field is missing.
+    
+    Args:
+        label: PDS4 label dictionary (from parse_pds4) or object.
+        file_name: Optional file path or identifier for error reporting.
+
+    Returns:
+        Dict[str, Any]: Extracted and validated metadata dictionary.
+
+    Raises:
+        MissingMetadataError: If any required metadata field is absent.
+    """
+    source_file = _get_val(label, ['xml_path', 'file_name', 'path'], file_name or '<unknown file>')
+
+    # 1. Sun Azimuth
+    sun_az = _get_val(label, ['sun_azimuth', 'solar_azimuth', 'sun_az'])
+    if sun_az is None:
+        raise MissingMetadataError('sun_azimuth', source_file)
+
+    # 2. Sun Elevation
+    sun_el = _get_val(label, ['sun_elevation', 'solar_elevation', 'sun_el'])
+    if sun_el is None:
+        raise MissingMetadataError('sun_elevation', source_file)
+
+    # 3. Orbit Position / Spacecraft Altitude
+    orbit_pos = _get_val(label, ['spacecraft_altitude', 'orbit_position', 'altitude', 'imaging_orbit_number', 'orbit'])
+    if orbit_pos is None:
+        raise MissingMetadataError('orbit_position', source_file)
+
+    # 4. GSD / Pixel Resolution
+    sensor = _get_val(label, ['sensor', 'instrument', 'instruments'])
+    if isinstance(sensor, list) and sensor:
+        sensor_name = sensor[0]
+    else:
+        sensor_name = str(sensor) if sensor else 'UNKNOWN'
+
+    gsd = _get_val(label, ['pixel_resolution', 'gsd', 'resolution_m', 'resolution'])
+    if gsd is None:
+        if sensor_name.upper() in SENSOR_SPECS:
+            gsd = SENSOR_SPECS[sensor_name.upper()]['resolution_m']
+        else:
+            raise MissingMetadataError('gsd', source_file)
+
+    # Illumination angles (incidence, emission, phase)
+    incidence = _get_val(label, ['incidence_angle', 'solar_incidence'])
+    if incidence is None:
+        incidence = 90.0 - float(sun_el)
+
+    emission = _get_val(label, ['emission_angle', 'emission'], 0.0)
+    
+    phase = _get_val(label, ['phase_angle', 'phase'])
+    if phase is None:
+        phase = compute_phase_angle(float(incidence), float(emission), float(sun_az), 0.0)
+
+    start_time = _get_val(label, ['start_date_time', 'start_time', 'time'], '')
+
     return {
-        'sensor': label.instrument if hasattr(label, 'instrument') else 'UNKNOWN',
-        'start_time': label.start_time if hasattr(label, 'start_time') else '',
-        'sun_elevation': label.sun_elevation if hasattr(label, 'sun_elevation') else 0.0,
-        'sun_azimuth': label.sun_azimuth if hasattr(label, 'sun_azimuth') else 0.0,
-        'incidence_angle': label.incidence_angle if hasattr(label, 'incidence_angle') else 0.0,
-        'emission_angle': label.emission_angle if hasattr(label, 'emission_angle') else 0.0,
+        'sensor': sensor_name,
+        'start_time': str(start_time),
+        'sun_azimuth': float(sun_az),
+        'solar_azimuth': float(sun_az),
+        'sun_elevation': float(sun_el),
+        'solar_elevation': float(sun_el),
+        'orbit_position': float(orbit_pos) if isinstance(orbit_pos, (int, float)) else str(orbit_pos),
+        'spacecraft_altitude': float(orbit_pos) if isinstance(orbit_pos, (int, float)) else str(orbit_pos),
+        'gsd': float(gsd),
+        'pixel_resolution': float(gsd),
+        'incidence_angle': float(incidence),
+        'emission_angle': float(emission),
+        'phase_angle': float(phase),
+        'xml_path': str(source_file),
     }

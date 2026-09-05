@@ -12,6 +12,8 @@ import cv2
 import torch
 import torch.nn.functional as F
 
+from lumen.features.iirs_pan import iirs_to_pan
+
 logger = logging.getLogger(__name__)
 
 __all__ = ['DeepMatcher']
@@ -59,26 +61,63 @@ class DeepMatcher:
             self.mode = 'orb'
 
     def _preprocess_image(self, image: np.ndarray) -> Tuple[torch.Tensor, Tuple[int, int]]:
-        """Convert numpy image to torch tensor, normalize, resize if needed."""
-        if len(image.shape) == 3:
+        """Convert numpy image to a format suitable for keypoint extraction.
+
+        Output contract
+        ---------------
+        - LightGlue / Kornia path: float32 torch tensor [0, 1], shape [1, 1, H, W].
+        - ORB path: uint8 grayscale numpy array.
+
+        Handles
+        -------
+        - IIRS hyperspectral cubes (band-last or band-first) → 2-D pan proxy.
+        - 3-channel (BGR) arrays → grayscale via cvtColor.
+        - float32 / float64 2-D arrays in arbitrary value range → uint8 for ORB.
+        """
+        # 1. Collapse IIRS hyperspectral cube to a 2-D pan proxy.
+        if image.ndim == 3 and image.shape[-1] > 3:
+            # band-last layout (H, W, B)
+            image = iirs_to_pan(image)
+        elif image.ndim == 3 and image.shape[0] > 3 and image.shape[0] <= 256:
+            # band-first layout (B, H, W) — BSQ as loaded from .qub
+            image = iirs_to_pan(image)
+
+        # 2. Reduce 3-channel (BGR) to grayscale.
+        #    All CH-2 sensors are monochromatic or already band-collapsed above,
+        #    so this path is a safety net for unexpected 3-channel inputs.
+        if image.ndim == 3:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
+        # image is guaranteed 2-D (H, W) from this point.
+
         h, w = image.shape
         orig_shape = (w, h)
-        
+
         if max(h, w) > self.resize_max:
             scale = self.resize_max / max(h, w)
             new_w, new_h = int(w * scale), int(h * scale)
             image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
-        
+
         if self.mode in ('lightglue', 'kornia'):
-            # Convert to float and [0, 1]
-            img_tensor = torch.from_numpy(image).float() / 255.0
-            # [1, 1, H, W]
-            img_tensor = img_tensor.unsqueeze(0).unsqueeze(0).to(self.device)
+            # Convert to float32 in [0, 1].
+            img_f = image.astype(np.float32)
+            if img_f.max() > 1.0:
+                img_f = img_f / 255.0
+            # Shape: [1, 1, H, W]
+            img_tensor = torch.from_numpy(img_f).unsqueeze(0).unsqueeze(0).to(self.device)
             return img_tensor, orig_shape
         else:
+            # ORB requires uint8 grayscale.
+            # Orthorectified images arrive as float32 in an arbitrary range;
+            # normalise to [0, 255] before handing to ORB.
+            if image.dtype != np.uint8:
+                img_f = image.astype(np.float32)
+                mn, mx = img_f.min(), img_f.max()
+                if mx > mn:
+                    image = ((img_f - mn) / (mx - mn) * 255.0).astype(np.uint8)
+                else:
+                    image = np.zeros_like(img_f, dtype=np.uint8)
             return image, orig_shape
+
 
     def detect(self, image: np.ndarray) -> Dict[str, Any]:
         """Detect keypoints and descriptors."""

@@ -10,6 +10,8 @@ import cv2
 import scipy.fft
 from scipy.ndimage import gaussian_filter
 
+from lumen.features.iirs_pan import iirs_to_pan
+
 logger = logging.getLogger(__name__)
 
 __all__ = ['compute_phase_congruency', 'compute_maximum_index_map', 
@@ -20,7 +22,16 @@ def compute_phase_congruency(image: np.ndarray, nscale: int = 4, norient: int = 
                              sigma_onf: float = 0.55) -> Tuple[np.ndarray, List[List[np.ndarray]]]:
     """
     Compute Phase Congruency using Log-Gabor filters.
+
+    If ``image`` is a hyperspectral cube (3-D, more than 3 channels), it is
+    first collapsed to a panchromatic proxy via ``iirs_to_pan``.  This is a
+    defensive guard; the primary conversion point is ``match_rift2``.
     """
+    # Defensive: collapse IIRS cube if passed directly.
+    if image.ndim == 3 and (image.shape[-1] > 3 or
+                            (image.shape[0] > 3 and image.shape[0] <= 256)):
+        image = iirs_to_pan(image)
+
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
@@ -185,8 +196,24 @@ def compute_rift2_descriptor(mim: np.ndarray, keypoints: np.ndarray,
 
 def match_rift2(image0: np.ndarray, image1: np.ndarray, 
                 num_keypoints: int = 1000) -> Dict[str, Any]:
-    """Full RIFT2 matching pipeline."""
+    """Full RIFT2 matching pipeline.
+
+    If either image is an IIRS hyperspectral cube (3-D, >3 channels), it is
+    converted to a panchromatic proxy via ``iirs_to_pan`` before phase
+    congruency computation.  See ``lumen.features.iirs_pan`` for the band
+    selection rationale and the visible-band limitation.
+    """
     start_time = time.time()
+
+    # Convert IIRS hyperspectral cubes to 2-D pan proxy.
+    # Without this, compute_phase_congruency silently passes through
+    # cv2.cvtColor which only sees the first 3 of 256 bands.
+    if image0.ndim == 3 and (image0.shape[-1] > 3 or
+                             (image0.shape[0] > 3 and image0.shape[0] <= 256)):
+        image0 = iirs_to_pan(image0)
+    if image1.ndim == 3 and (image1.shape[-1] > 3 or
+                             (image1.shape[0] > 3 and image1.shape[0] <= 256)):
+        image1 = iirs_to_pan(image1)
     
     # Compute PC and MIM
     pc0, resp0 = compute_phase_congruency(image0)

@@ -12,8 +12,12 @@ weights/
 data/
 raw/
 processed/
+dashboard/outputs/
 *.img
 *.xml
+*.tif
+*.tiff
+*.qub
 
 # IDE
 .vscode/

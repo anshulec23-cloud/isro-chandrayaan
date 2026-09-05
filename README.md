@@ -1,180 +1,71 @@
-# 🌖 LUMEN
+# LUMEN: Lunar Multi-Sensor Registration Pipeline
 
-<div align="center">
-  <h3><strong>L</strong>unar <strong>M</strong>ulti-modal <strong>E</strong>ngagement <strong>N</strong>etwork</h3>
-  <p><em>Multi-modal, Sun angle and scale invariant image correspondence using Chandrayaan-2 optical images</em></p>
+LUMEN is an automated computer vision pipeline developed to rigorously align multi-sensor orbital imagery of the Moon (ISRO Chandrayaan-2/3 TMC, OHRC, and IIRS data). 
 
-  <!-- Badges -->
-  <a href="https://www.python.org/downloads/release/python-3110/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
-  <a href="#"><img src="https://img.shields.io/badge/build-passing-brightgreen.svg" alt="Build Status"></a>
-  <a href="#"><img src="https://img.shields.io/badge/coverage-95%25-brightgreen.svg" alt="Coverage"></a>
-</div>
+## Project Documentation
 
----
+The repository has been fully audited and documented. Please refer to the `/docs` directory for detailed information:
 
-## 🎯 The Problem
+- 🏗️ **[Architecture & Data Flow](docs/ARCHITECTURE.md)**: Detailed explanation of the 7-stage pipeline.
+- 📜 **[Progress Log](docs/PROGRESS.md)**: A chronological history of the project's development.
+- ⚖️ **[Rules & Constraints](docs/RULES.md)**: Hardware RAM limits and strict data limitations.
+- 🎨 **[Dashboard UI Design](docs/DESIGN.md)**: The rationale behind the stage-tracker and image viewer.
+- 🎯 **[PRD & Gap Analysis](docs/PRD.md)**: Original requirements vs actual deliverables.
+- 🔍 **[Self-Audit Report](docs/AUDIT.md)**: Handoff notes and what works end-to-end.
 
-Image Registration is the process of aligning two or more images of the same scene taken at different times, from different viewpoints, or by different sensors. For the **Chandrayaan-2** mission, this poses several extreme challenges:
+## Getting Started
 
-- **Extreme Scale Variations**: Aligning OHRC (0.25m), TMC-2 (5m), and IIRS (80m) imagery involves scale ratios of up to **320:1**.
-- **Illumination Dynamics**: Severe variations caused by changing sun angles over the lunar surface.
-- **Orbital Geometry**: Significant viewpoint variations due to spacecraft orbital dynamics.
-- **Multi-modal Complexity**: Matching across different sensor types (e.g., panchromatic vs. hyperspectral).
+### 1. Requirements
+- **Python 3.10+**
+- **Node.js 18+**
+- **OS**: Windows / Linux
+- **RAM**: Minimum 16GB required.
 
-## 🚀 Our Solution
+### 2. Setup
+1. Clone the repository.
+2. Install Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Prepare the data: Ensure ISRO PDS4 archives are extracted into `data/raw/` and `data/calibrated/`. 
 
-LUMEN introduces a robust, hybrid registration pipeline designed specifically for the lunar environment, combining traditional photogrammetry with state-of-the-art deep learning:
+### 3. Running the Demo Dashboard
+To view the validated results, the interactive pipeline stage tracker, and the out-of-core image viewers, run the automated demo script from the root of the repository:
 
-- **Photometric Normalization**: Implements Lommel-Seeliger and Minnaert reflectance models for robust sun-angle invariance.
-- **Deep Feature Matching**: Utilizes SuperPoint + LightGlue for learned, highly accurate keypoint detection and matching.
-- **Cross-Modal Correspondence**: Leverages RIFT2 (Radiation-variation Insensitive Feature Transform) for matching across distinct sensor modalities.
-- **Spatial Distribution**: Grid-based uniform sampling ensures evenly distributed tie-points across the image overlap.
-- **Robust Outlier Rejection**: MAGSAC++ integration for superior geometric verification and filtering.
-- **Sub-Pixel Refinement**: Phase correlation algorithms to achieve high-precision alignment.
-
-## ✨ Key Features
-
-- **🎯 Sub-pixel Accuracy**: Precision registration down to sub-pixel levels.
-- **🛰️ Multi-sensor Support**: Seamlessly handles OHRC, TMC-2, and IIRS data.
-- **☀️ Sun-angle Invariant**: Robust matching regardless of illumination conditions.
-- **🔍 Scale-invariant**: Handles extreme scale disparities (up to 320:1) via bridge registration techniques.
-- **🎛️ Interactive Dashboard**: A "Lunar Operations Command" themed UI for visualization and control.
-- **⚡ RESTful Architecture**: Powered by a high-performance FastAPI backend.
-- **📊 Comprehensive Analytics**: Detailed evaluation metrics and visualizations.
-
-## 🏗️ Architecture Overview
-
-```mermaid
-graph TD
-    A[Data Ingestion<br>PDS4/GeoTIFF] --> B[Preprocessing<br>Photometric Normalization]
-    
-    subgraph Feature Extraction & Matching
-        B --> C1[Deep Pipeline<br>SuperPoint + LightGlue]
-        B --> C2[Hand-crafted Pipeline<br>RIFT2]
-        C1 --> D[Grid-based Uniform Sampling]
-        C2 --> D
-    end
-    
-    D --> E[Outlier Rejection<br>MAGSAC++]
-    E --> F[Geometric Transformation]
-    F --> G[Sub-pixel Refinement<br>Phase Correlation]
-    
-    G --> H[Registered Output]
-    G --> I[Evaluation Metrics]
-    
-    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
-    classDef sub fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
-    class Feature Extraction & Matching sub;
-```
-
-## 🚀 Quick Start Guide (v1.1)
-
-Welcome to **Lunar Mission Control**. 
-
-### Prerequisites (Data)
-The PRADAN portal requires an ISRO login to download data. To test this pipeline, download overlapping OHRC and TMC-2 `.xml` and `.img` PDS4 files and place them into `data/raw/` (e.g., `data/raw/ch2_ohr_ncp...`).
-
-### Option A: Local Python Install
 ```bash
-# Clone the repository
-git clone https://github.com/BLITZcomm/isro-chandrayaan.git
-cd isro-chandrayaan
-
-# Install the package and all AI/CV dependencies
-pip install -e ".[dev]"
-
-# Start the FastAPI backend and serve the UI
-python -m lumen.cli serve --port 8000
+.\START_DEMO.bat
 ```
+This script will build the React dashboard, launch the FastAPI server, and automatically open the interactive demonstration in your default web browser.
 
-### Option B: Docker Compose (Recommended)
-We include a fully configured production environment with PyTorch and CUDA support.
-```bash
-# Build and start the container
-docker-compose up --build
-```
+## Current Validated Results
 
-### Using the Dashboard
-1. Navigate to: **http://localhost:8000/dashboard**
-2. You will see the **Lunar Mission Control - Geometry** panel.
-3. Click **INITIATE ALIGNMENT** to process the data via WebSocket and view progress.
+The pipeline has been thoroughly tested and validated on an overlapping TMC-to-TMC stereo pair situated in the Lunar Equatorial region (Latitude: -29.51° to -3.62°S, Longitude: 140.78° to 142.71°E). Note: OHRC products are located at the Lunar South Pole (-84.66° to -89.95°S), resulting in 0.00% physical cross-sensor overlap in the current archive.
 
-### Command Line Usage
-To run headlessly on large datasets:
-```bash
-python -m lumen.cli register \
-    --source data/raw/ch2_ohr.../ch2_ohr.xml \
-    --reference data/raw/ch2_tmc.../ch2_tmc.xml \
-    --source-sensor OHRC \
-    --ref-sensor TMC2
-```
+- **Independent Validation RMSE**: 1.932 px (~10.59 meters on ground) cross-validated against 20 unseen SIFT tie points to prevent matcher bias.
+- **Matcher-Based RMSE**: 1.447 px (~7.93 meters on ground) MAGSAC++ internal residual error.
+- **Structural Similarity (SSIM)**: 0.623 photometric structural correlation across the shared 92.34% ground footprint.
+- **RANSAC Inlier Ratio**: 57.9% (62 inliers / 107 match candidates).
 
-## 📂 Project Structure
+*Interactive alpha-blend comparison (0–100%), checkerboard overlays, and visual proofs can be viewed directly in the Retro Terminal Dashboard.*
 
-```text
-isro-chandrayaan/
-├── lumen/
-│   ├── api/               # FastAPI endpoints & WebSocket server
-│   ├── features/          # DeepMatcher (SuperPoint+LightGlue), RIFT2, GridSampler
-│   ├── geometry/          # MAGSAC++, TPS outlier rejection, Sub-pixel phase corr
-│   ├── ingest/            # PDS4 XML parsing & Metadata extraction
-│   ├── pipeline/          # Orchestrator wiring the full pipeline
-│   ├── preprocess/        # Photometric (Lommel-Seeliger) & Radiometric
-│   ├── registration/      # Affine/Perspective warping
-│   ├── cli.py             # Rich CLI interface
-│   └── config.py          # Pydantic v2 settings
-├── dashboard/             # Frontend HTML/JS (Tailwind, Mission Control UI)
-├── tests/                 # Pytest suite
-├── data/                  # PRADAN PDS4 datasets
-├── Dockerfile             # NVIDIA CUDA production image
-├── docker-compose.yml     # Container orchestration
-└── pyproject.toml         # Build system & dependencies
-```
+## Dashboard Architecture
 
-## 🛠️ Technology Stack
+The frontend has been rebuilt with a retro CRT terminal telemetry aesthetic (`#0a0a0a` pure black, `#e8a33d` amber accents, monospace typography, and `MOD-XX` technical spec tags):
 
-- **Core/Backend**: Python 3.11+, PyTorch, OpenCV, GDAL/Rasterio, FastAPI
-- **Algorithms**: SuperPoint, LightGlue, RIFT2, MAGSAC++
-- **Frontend**: React, Tailwind CSS (Custom Lunar Operations Command theme)
+1. **`01. MAPPING/GEOMETRY`**: XML-derived telemetry readout table, animated 3D Three.js wireframe acquisition geometry (satellite position, sensor orientation cone, rotating ground grid, and sun illumination vector driven by real incidence/emission angles), and full-bleed swath viewer.
+2. **`02. PIPELINE`**: Interactive 7-stage tracker (PDS4 Ingestion through Evaluation) with prominent honesty disclosures (Stage 2 ISRO GCP grid with z=0.0m datum fallback; Stage 3 Lommel-Seeliger synthetic relief demo; Stage 7 physical non-overlap disclosure).
+3. **`03. EVALUATION`**: Full-bleed interactive horizontal alpha-blend slider (0% Reference to 100% Aligned Source), secondary crater rim and full-swath checkerboards, and oversized numeric metric cards distinguishing independent vs matcher-based RMSE.
+4. **`04. DATASETS`**: Live physical archive inventory table listing all 8 Chandrayaan-2 products on disk (10.49 GB total volume) with real file sizes computed from disk, `[INSPECT]` cross-linking to Page 1, and geodetic coverage constraint analysis.
 
-## 📡 Data Sources
+## Directory Map
 
-- **ISRO PRADAN Portal**: [pradan.issdc.gov.in](https://pradan.issdc.gov.in)
-- **Format**: PDS4 Standard
-- **Elevation Data**: LOLA DEM utilized for accurate orthorectification
-
-## 📈 Evaluation Metrics
-
-LUMEN employs rigorous metrics to validate registration quality:
-
-- **RMSE (Root Mean Square Error)**: Target < 0.5 pixels
-- **Inlier Ratio**: Target > 70%
-- **SSIM (Structural Similarity)**: Evaluated on phase congruency maps
-- **Visual Validation**: Interactive checkerboard and false-color compositing
-
-## 📸 Dashboard Screenshots
-
-*(Placeholders for future dashboard screenshots)*
-
-<div align="center">
-  <img src="https://via.placeholder.com/800x400.png?text=Lunar+Operations+Command+Dashboard" alt="Dashboard View 1">
-  <br>
-  <em>Lunar Operations Command - Main Registration Interface</em>
-</div>
-
-## 🤝 Team & Credits
-
-- Built for the **ISRO Chandrayaan-2** mission data ecosystem.
-- UI features the [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk) typeface.
-
-## 📄 License
-
-This project is licensed under the **MIT License** - see the LICENSE file for details.
-
-## 📚 References
-
-- **SuperPoint**: DeTone et al., "SuperPoint: Self-Supervised Interest Point Detection and Description", 2018.
-- **LightGlue**: Lindenberger et al., "LightGlue: Local Feature Matching at Light Speed", 2023.
-- **RIFT2**: Li et al., "RIFT2: Radiation-variation Insensitive Feature Transform", 2023.
-- **MAGSAC++**: Barath et al., "MAGSAC++, a fast, reliable and accurate robust estimator", 2020.
+- `lumen/`: Core Python package containing the pipeline architecture.
+- `scripts/`: Standalone scripts for inventory, preview generation, and manual validation.
+- `dashboard/`: Single-page React application with retro CRT telemetry design.
+- `tests/`: Extensive pytest suite verifying pipeline integrity.
+- `data/`: 
+  - `raw/`: Raw ISRO zip archives and extracted PDS4 data (10.49 GB across 8 products).
+  - `derived/`: IIRS hyperspectral radiance and reflectance cubes (`.qub`).
+  - `processed/real_ortho_outputs/`: Generated GeoTIFF projections.
+  - `processed/FINAL_DEMO/`: Validated TMC-TMC output images and checkerboards.
+- `docs/`: Full project documentation.
