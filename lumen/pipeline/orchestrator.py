@@ -424,8 +424,14 @@ class RegistrationPipeline:
     # ------------------------------------------------------------------
 
     def _ingest(self, path: Union[str, Path]) -> Tuple[np.ndarray, Dict[str, Any]]:
-        """Parse PDS4 XML and load the raw binary array."""
+        """Parse PDS4 XML (or SELENE PDS3 LBL) and load the raw binary array."""
         logger.debug(f"Ingesting {path}")
+        from lumen.ingest.selene_adapter import is_selene_product, parse_selene_pds3, load_selene_image
+        if is_selene_product(path):
+            meta = parse_selene_pds3(path)
+            img, _ = load_selene_image(path)
+            return img, meta
+
         label = parse_pds4(path)
         img = load_binary_image(path)
         meta = extract_metadata(label)
@@ -455,6 +461,11 @@ class RegistrationPipeline:
             *bbox_lonlat* is ``(min_lon, min_lat, max_lon, max_lat)`` in
             EPSG:4326, or ``None`` when skip_ortho=True.
         """
+        if metadata.get("is_orthorectified"):
+            bbox = metadata.get("bbox_lonlat")
+            logger.info(f"Product is already orthorectified. Footprint bbox: {bbox}")
+            return image, bbox
+
         if skip_ortho:
             # Cap large raw images to prevent OOM in synthetic/test scenarios.
             if max(image.shape[:2]) > max_dim:
@@ -547,11 +558,25 @@ class RegistrationPipeline:
         method: str, sensor0: str, sensor1: str
     ) -> Dict[str, Any]:
         if method == "auto":
-            method = "deep" if sensor0 == sensor1 else "rift2"
+            opticals = {"OHRC", "TMC2", "SELENE_TC", "LROC_NAC"}
+            if sensor0.upper() in opticals and sensor1.upper() in opticals:
+                method = "deep"
+            else:
+                method = "rift2"
 
         if method == "deep":
             matcher = DeepMatcher()
-            return matcher.match(image0, image1)
+            matches = matcher.match(image0, image1)
+            # If deep matcher found very few points on cross-sensor imagery, attempt RIFT2 fallback
+            if len(matches.get('keypoints0', [])) < 8 and sensor0 != sensor1:
+                logger.info("Deep matcher found <8 correspondences on cross-sensor pair; attempting RIFT2 fallback.")
+                try:
+                    rift_matches = match_rift2(image0, image1)
+                    if len(rift_matches.get('keypoints0', [])) > len(matches.get('keypoints0', [])):
+                        return rift_matches
+                except Exception as e:
+                    logger.warning(f"RIFT2 fallback failed: {e}")
+            return matches
         elif method == "rift2":
             return match_rift2(image0, image1)
         else:

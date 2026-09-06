@@ -45,7 +45,23 @@ SENSOR_SPECS: Dict[str, Dict[str, Any]] = {
         'bands': 256,
         'swath_km': 20.0,
         'type': 'hyperspectral',
-        'sensor_technology': 'imaging spectrometer'
+        'sensor_technology': 'pushbroom spectrometer'
+    },
+    'SELENE_TC': {
+        'resolution_m': 7.4,
+        'spectral_range_nm': (450, 700),
+        'bands': 1,
+        'swath_km': 35.0,
+        'type': 'panchromatic',
+        'sensor_technology': 'Terrain Camera stereo pushbroom'
+    },
+    'LROC_NAC': {
+        'resolution_m': 0.5,
+        'spectral_range_nm': (400, 750),
+        'bands': 1,
+        'swath_km': 5.0,
+        'type': 'panchromatic',
+        'sensor_technology': 'Narrow Angle Camera linescan'
     }
 }
 

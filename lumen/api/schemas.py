@@ -18,6 +18,8 @@ class SensorType(str, Enum):
     OHRC = "OHRC"
     TMC2 = "TMC2"
     IIRS = "IIRS"
+    SELENE_TC = "SELENE_TC"
+    LROC_NAC = "LROC_NAC"
 
 
 class PipelineOptions(BaseModel):

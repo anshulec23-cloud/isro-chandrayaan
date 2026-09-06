@@ -128,8 +128,8 @@ def main():
     register_parser = subparsers.add_parser("register", help="Run image registration")
     register_parser.add_argument("source", help="Path to source image (to be warped)")
     register_parser.add_argument("reference", help="Path to reference image")
-    register_parser.add_argument("--source-sensor", required=True, choices=["OHRC", "TMC2", "IIRS"])
-    register_parser.add_argument("--ref-sensor", required=True, choices=["OHRC", "TMC2", "IIRS"])
+    register_parser.add_argument("--source-sensor", required=True, choices=["OHRC", "TMC2", "IIRS", "SELENE_TC", "LROC_NAC"])
+    register_parser.add_argument("--ref-sensor", required=True, choices=["OHRC", "TMC2", "IIRS", "SELENE_TC", "LROC_NAC"])
     register_parser.add_argument("--method", default="auto", choices=["auto", "deep", "rift2"])
     register_parser.set_defaults(func=cmd_register)
     
