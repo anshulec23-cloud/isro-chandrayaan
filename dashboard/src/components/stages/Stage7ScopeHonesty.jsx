@@ -151,10 +151,10 @@ export default function Stage7ScopeHonesty({ stageData = {} }) {
                   <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
                   Tech 1: Lommel-Seeliger SIFT
                 </span>
-                <span className="text-emerald-400 font-mono font-bold text-[10px]">80.97% INLIERS</span>
+                <span className="text-emerald-400 font-mono font-bold text-[10px]">77.01% INLIERS</span>
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Applied pipeline's true photometric model (<code className="text-cyan-300">i=39.06°</code>) before feature detection. Jumped from degenerate 3.17% to <strong className="text-emerald-300">217 inliers / 268 matches</strong> with <strong className="text-emerald-300">0.91 px RMSE</strong>. Mean terrain correlation jumped <strong className="text-cyan-300">0.4978 → 0.8802 (+76.8%)</strong>.
+                Applied pipeline's true photometric model (<code className="text-cyan-300">i=39.06°</code>) before feature detection. Integrated pipeline achieves <strong className="text-emerald-300">134 inliers / 174 matches (77.01%)</strong> with <strong className="text-emerald-300">0.84 px RMSE</strong> and SSIM 0.3756 (SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors). Mean terrain correlation jumped <strong className="text-cyan-300">0.4978 → 0.8802 (+76.8%)</strong>.
               </p>
             </div>
 
@@ -185,7 +185,7 @@ export default function Stage7ScopeHonesty({ stageData = {} }) {
             </div>
 
             <div className="p-2.5 rounded bg-amber-950/30 border border-amber-800/40 text-[10px] text-amber-300 leading-relaxed">
-              <strong>Rigorous Takeaway:</strong> Intensity-gradient matching fails cross-mission when shadows differ, but succeeds (80.97% inliers) once physical Lommel-Seeliger photometric correction removes the phase-angle bias.
+              <strong>Rigorous Takeaway:</strong> Intensity-gradient matching fails cross-mission when shadows differ, but succeeds (77.01% inliers, 0.84 px RMSE) once physical Lommel-Seeliger photometric correction removes the phase-angle bias.
             </div>
           </div>
         </div>

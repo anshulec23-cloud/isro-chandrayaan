@@ -36,24 +36,26 @@ As part of the cross-mission registration mandate, LUMEN was integrated and test
 - **Production Pipeline Solution**: Integrated Lommel-Seeliger photometric normalization (`lumen/preprocess/photometric.py`) directly into `RegistrationPipeline` and CLI (`lumen/pipeline/orchestrator.py`, `lumen/cli.py`). Cross-mission optical pairs automatically apply Lommel-Seeliger normalization and SIFT + MAGSAC++ matching.
 - **Validated Production Run (TMC-2 vs SELENE TC)**:
   - CLI: `python -m lumen.cli register data/raw/ch2_tmc_ncn...xml data/reference/selene_tc/TCO_MAP_02_S06E141S09E144SC.lbl --source-sensor TMC2 --ref-sensor SELENE_TC`
-  - Inlier Count: **134 inliers** (grid-sampled) / **349 inliers** (dense)
-  - Inlier Ratio: **77.01%** (grid-sampled) / **87.03%** (dense)
-  - RMSE: **0.8396 px** (Sub-pixel convergence achieved!)
+  - Inliers: **134 / 174 inliers (77.01%)**
+  - RMSE: **0.84 px** (0.8396 px — Sub-pixel convergence achieved!)
+  - SSIM: **0.3756** (*SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors.*)
   - Runtime: **3.16 seconds** end-to-end.
 
 ### B. NASA Lunar Reconnaissance Orbiter (LROC NAC) (Tested & Divergent)
-- **Overlap Footprint**: Overlapping region between Chandrayaan-2 TMC-2 Nadir and NASA LRO NAC (`M1418935915LC`) covering Latitude [-9.06°, -7.23°] and Longitude [141.75°, 142.05°] (~549 km²).
-- **Ingestion**: Built real PDS3 attached-header parser and memory-mapped linescan reader (`lumen/ingest/lroc_adapter.py`) supporting both raw 528.9 MB binary linescan (`.IMG`) and multi-resolution pyramid GeoTIFF (`_pyr.tif`).
+- **Overlap Footprint**: Overlapping region between Chandrayaan-2 TMC-2 Nadir and NASA LRO NAC (`M1418935915LC`) covering Latitude [-9.06°, -7.23°] and Longitude [141.75°, 142.07°] (~585 km²).
+- **Ingestion**: Built real PDS3 attached-header parser (`parse_pds3_attached_header`) and memory-mapped linescan reader (`lumen/ingest/lroc_adapter.py`) supporting both raw 528.9 MB binary linescan (`.IMG`) and multi-resolution pyramid GeoTIFF (`_pyr.tif`), with verified observation geometry from NASA ODE catalog.
 - **Validated Production Run (TMC-2 vs LROC NAC)**:
-  - CLI: `python -m lumen.cli register data/raw/ch2_tmc_ncn...xml data/reference/lroc_nac/M1418935915LC_pyr.tif --source-sensor TMC2 --ref-sensor LROC_NAC`
-  - Total Matches: **65**
-  - Inlier Count: **18**
-  - Inlier Ratio: **27.69%**
-  - RMSE: **48.02 px** (Did NOT reach sub-pixel convergence).
+  - CLI: `python -m lumen.cli register --source data/raw/ch2_tmc_ncn_20260813T0627378557_d_img_d18/data/calibrated/20260813/ch2_tmc_ncn_20260813T0627378557_d_img_d18.xml --reference data/reference/lroc_nac/M1418935915LC.IMG --ref-sensor LROC_NAC`
+  - Total Matches: **63**
+  - Inlier Count: **21**
+  - Inlier Ratio: **33.33%**
+  - RMSE: **845.61 px** (Along-track $RMSE_y = 843.67$ px, Cross-track $RMSE_x = 57.18$ px).
+  - Runtime: **3.75 seconds** end-to-end.
+  - Convergence: **Divergent** (Did NOT achieve sub-pixel convergence).
 - **Physical Root Causes for Non-Convergence**:
-  1. *Extreme Scale Mismatch (11:1)*: LRO NAC native GSD is 0.50 m/px vs TMC-2 at 5.48 m/px. This 11:1 resolution ratio exceeds standard scale-space octave invariance.
-  2. *Unprojected Pushbroom Geometry*: The downloaded NASA CDR is raw linescan pushbroom imagery with spacecraft attitude drift, not map-projected via ISIS3 `cam2map`.
-  3. *Illumination Reversal*: TMC-2 was acquired with morning sun (azimuth 69.56°), while LRO NAC was acquired in late afternoon, reversing shadow topography across crater rims.
+  1. *Unprojected Pushbroom Geometry*: The downloaded NASA CDR is raw linescan pushbroom imagery (52,224 lines) where lines represent spacecraft clock scan times rather than an orthorectified geographic grid. As evidenced by the massive along-track error ($RMSE_y = 843.67$ px), spacecraft orbital pitch/yaw drift requires full SPICE camera projection (USGS ISIS3 `cam2map`) before planar homography can align with map-projected TMC-2.
+  2. *Illumination Difference*: LRO NAC was acquired with near-nadir high sun (incidence 14.91°, solar elevation 75.09°), erasing topography shadows, whereas TMC-2 was acquired with morning sun (solar elevation 50.94°), producing prominent shadow edges.
+  3. *Scale Mismatch*: LRO NAC native resolution is 1.062 m/px (up to 0.50 m/px unbinned) vs TMC-2 at 5.48 m/px.
 
 ## 4. What Is Built But Not Validated (Architecturally Complete)
 

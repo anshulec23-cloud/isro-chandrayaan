@@ -597,7 +597,7 @@ async def get_demo_data():
                         "techniques": [
                             {
                                 "name": "Technique 1: Lommel-Seeliger Normalization + SIFT/ORB",
-                                "result": "217 SIFT inliers / 268 candidates (80.97% inlier ratio), 0.91 px residual RMSE. Patch correlation jumped from 0.4978 to 0.8802.",
+                                "result": "134 SIFT inliers / 174 candidates (77.01% inlier ratio), 0.84 px residual RMSE, SSIM 0.3756 (SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors). Patch correlation jumped from 0.4978 to 0.8802.",
                                 "status": "SUCCESSFUL CONVERGENCE"
                             },
                             {
@@ -646,10 +646,10 @@ async def get_demo_data():
                 "overlap_area_km2": 4713,
                 "technique1": {
                     "method": "Lommel-Seeliger Normalization + SIFT/ORB",
-                    "sift_candidates": 268,
-                    "sift_inliers": 217,
-                    "sift_inlier_ratio": 0.8097,
-                    "residual_rmse_px": 0.91,
+                    "sift_candidates": 174,
+                    "sift_inliers": 134,
+                    "sift_inlier_ratio": 0.7701,
+                    "residual_rmse_px": 0.84,
                     "patch_corr_before": 0.4978,
                     "patch_corr_after": 0.8802,
                     "orb_candidates": 962,

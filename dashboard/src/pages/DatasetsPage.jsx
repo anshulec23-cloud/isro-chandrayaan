@@ -255,11 +255,13 @@ export default function DatasetsPage({ onSelectProductForGeometry, rawInventory 
               <div><span className="text-[#666666]">Format:</span> PDS3 Map (Cylindrical)</div>
               <div><span className="text-[#666666]">Overlap Extent:</span> [-9.0°, -6.0°] Lat</div>
               <div><span className="text-[#666666]">Overlap Long:</span> [141.0°, 142.71°] Lon</div>
-              <div><span className="text-[#666666]">Inlier Ratio:</span> <span className="text-[#81c784] font-bold">77.01% – 87.03%</span></div>
-              <div><span className="text-[#666666]">Pipeline RMSE:</span> <span className="text-[#81c784] font-bold">0.8396 px</span></div>
+              <div><span className="text-[#666666]">Inlier Ratio:</span> <span className="text-[#81c784] font-bold">77.01% (134 / 174 inliers)</span></div>
+              <div><span className="text-[#666666]">Pipeline RMSE:</span> <span className="text-[#81c784] font-bold">0.84 px</span></div>
+              <div><span className="text-[#666666]">Full SSIM:</span> <span className="text-[#81c784] font-bold">0.3756</span></div>
+              <div><span className="text-[#666666]">Execution:</span> <span className="text-[#cccccc]">3.16s end-to-end</span></div>
             </div>
-            <div className="text-[10px] text-[#888888] bg-[#111111] p-2 border border-[#222222]">
-              Status: <span className="text-[#81c784]">Production Verified</span>. Fully integrated into `RegistrationPipeline` and CLI. Lommel-Seeliger + SIFT + MAGSAC++ achieves sub-pixel convergence in 3.16s.
+            <div className="text-[10px] text-[#888888] bg-[#111111] p-2 border border-[#222222] leading-relaxed">
+              Status: <span className="text-[#81c784]">Production Verified</span>. 134/174 inliers (77.01%), 0.84 px RMSE, SSIM 0.3756 (SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors).
             </div>
           </div>
 
@@ -276,15 +278,15 @@ export default function DatasetsPage({ onSelectProductForGeometry, rawInventory 
               <div className="text-[11px] text-[#e8a33d]">M1418935915LC.IMG / _pyr.tif</div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-[#1f1f1f]">
-              <div><span className="text-[#666666]">Native GSD:</span> 0.50 m/px</div>
+              <div><span className="text-[#666666]">Native GSD:</span> 1.06 m/px</div>
               <div><span className="text-[#666666]">Format:</span> PDS3 Linescan (Raw CDR)</div>
               <div><span className="text-[#666666]">Overlap Extent:</span> [-9.06°, -7.23°] Lat</div>
-              <div><span className="text-[#666666]">Overlap Long:</span> [141.75°, 142.05°] Lon</div>
-              <div><span className="text-[#666666]">Inlier Ratio:</span> <span className="text-[#e57373] font-bold">27.69%</span> (18/65)</div>
-              <div><span className="text-[#666666]">Pipeline RMSE:</span> <span className="text-[#e57373] font-bold">48.02 px</span></div>
+              <div><span className="text-[#666666]">Overlap Long:</span> [141.75°, 142.07°] Lon</div>
+              <div><span className="text-[#666666]">Inlier Ratio:</span> <span className="text-[#e57373] font-bold">33.33%</span> (21/63)</div>
+              <div><span className="text-[#666666]">Pipeline RMSE:</span> <span className="text-[#e57373] font-bold">845.61 px</span></div>
             </div>
             <div className="text-[10px] text-[#888888] bg-[#111111] p-2 border border-[#222222]">
-              Status: <span className="text-[#e57373]">Tested, Divergent</span>. Causes: 11:1 scale discrepancy (0.50m vs 5.48m) + unprojected pushbroom linescan distortion + morning (69.6°) vs afternoon sun reversal.
+              Status: <span className="text-[#e57373]">Tested, Divergent</span>. Causes: Unprojected pushbroom linescan distortion ($RMSE_y = 843.67$ px along-track drift) requiring ISIS3 `cam2map` projection + high-noon (14.91° inc) vs morning sun illumination.
             </div>
           </div>
         </div>
