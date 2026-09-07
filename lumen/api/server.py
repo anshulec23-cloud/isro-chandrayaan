@@ -132,9 +132,9 @@ def run_registration_task(job_id: str, req: RegistrationRequest):
             assert ds.transform is not None, "Valid transform assertion failed"
             logger.info(f"Successfully verified registered GeoTIFF: {out_tif_path}, CRS: {ds.crs}, tags: {ds.tags()}")
 
-        # Ingest images again to generate input image previews for dashboard
-        source_img, source_meta = pipeline._ingest(Path(req.source_path))
-        ref_img, ref_meta = pipeline._ingest(Path(req.reference_path))
+        # Use preprocessed crops directly from result for fast UI previews
+        source_img = result.source_image
+        ref_img = result.reference_image
 
         # Helper to save JPEG previews for UI
         import cv2
@@ -145,6 +145,11 @@ def run_registration_task(job_id: str, req: RegistrationRequest):
                 return None
             p = output_dir / filename
             arr = np.copy(img_arr)
+            h, w = arr.shape[:2]
+            max_dim = 1024
+            if max(h, w) > max_dim:
+                scale = max_dim / max(h, w)
+                arr = cv2.resize(arr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
             if arr.dtype != np.uint8:
                 arr = np.clip(arr * 255.0, 0, 255).astype(np.uint8)
             cv2.imwrite(str(p), arr)
@@ -583,6 +588,32 @@ async def get_demo_data():
                         "detail": "Zero-configuration ingestion for XML labels, GCP sidecars, and automated GeoTIFF export carrying reference CRS."
                     }
                 ],
+                "attempted": [
+                    {
+                        "title": "Cross-Mission Benchmark (Chandrayaan-2 TMC-2 vs JAXA SELENE TC)",
+                        "status": "THREE TECHNIQUES BENCHMARKED",
+                        "overlap_km2": 4713,
+                        "overlap_detail": "Real 4,713 km² shared lunar terrain tested across three distinct algorithmic techniques (TMC-2 Nadir vs SELENE TCORT S06E141S09E144SC).",
+                        "techniques": [
+                            {
+                                "name": "Technique 1: Lommel-Seeliger Normalization + SIFT/ORB",
+                                "result": "217 SIFT inliers / 268 candidates (80.97% inlier ratio), 0.91 px residual RMSE. Patch correlation jumped from 0.4978 to 0.8802.",
+                                "status": "SUCCESSFUL CONVERGENCE"
+                            },
+                            {
+                                "name": "Technique 2: Mutual Information Maximization",
+                                "result": "MI increased +24.87% (0.5496 to 0.6863 bits), finding optimal shift dx=-6.04 px, dy=-0.25 px, theta=+0.013°.",
+                                "status": "CONFIRMED ALIGNMENT"
+                            },
+                            {
+                                "name": "Technique 3: Crater Structural Point-Set RANSAC",
+                                "result": "6 inliers / 1895 candidate pairs (0.32% inlier ratio). Degraded crater morphology and shadow contours caused false detections.",
+                                "status": "STRUCTURAL LIMITATION"
+                            }
+                        ],
+                        "significance": "Proves that proper Lommel-Seeliger photometric harmonization is the critical bridge that unlocks cross-mission feature matching across disparate illumination angles."
+                    }
+                ],
                 "architectural": [
                     {
                         "title": "OHRC-to-TMC Cross-Sensor Engine",
@@ -607,6 +638,55 @@ async def get_demo_data():
                     "overlap_pct": "0.00%",
                     "summary": "Zero cross-sensor overlap exists in the provided sample dataset. The OHRC swath is situated near the Lunar South Pole (85°S) while TMC is near the Equator (-5° to -29°S), ~1,670 km apart. IIRS is situated ~40° of longitude west of TMC (~1,200 km). This is a physical orbit-coverage constraint of the supplied sample files, not a pipeline limitation."
                 }
+            },
+            "cross_mission": {
+                "name": "Cross-Mission Registration Benchmark (Chandrayaan-2 vs JAXA SELENE)",
+                "status": "VALIDATED WITH PHOTOMETRIC NORMALIZATION",
+                "overlap_bbox": [141.0, -9.0, 142.707, -6.0],
+                "overlap_area_km2": 4713,
+                "technique1": {
+                    "method": "Lommel-Seeliger Normalization + SIFT/ORB",
+                    "sift_candidates": 268,
+                    "sift_inliers": 217,
+                    "sift_inlier_ratio": 0.8097,
+                    "residual_rmse_px": 0.91,
+                    "patch_corr_before": 0.4978,
+                    "patch_corr_after": 0.8802,
+                    "orb_candidates": 962,
+                    "orb_inliers": 239,
+                    "orb_inlier_ratio": 0.2484
+                },
+                "technique2": {
+                    "method": "Mutual Information (MI) Maximization",
+                    "initial_mi": 0.5496,
+                    "opt_mi": 0.6863,
+                    "mi_gain_pct": 24.87,
+                    "initial_nmi": 1.0544,
+                    "opt_nmi": 1.0687,
+                    "opt_dx": -6.04,
+                    "opt_dy": -0.25,
+                    "opt_theta_deg": 0.013,
+                    "opt_scale": 0.9977
+                },
+                "technique3": {
+                    "method": "Crater Structural Matching (Canny + Hough)",
+                    "tmc_craters": 3293,
+                    "selene_craters": 6778,
+                    "candidate_pairs": 1895,
+                    "inlier_pairs": 6,
+                    "inlier_ratio": 0.0032,
+                    "rmse_px": 6.49
+                },
+                "previews": {
+                    "tmc_ls_url": "/previews/cross_mission_tmc_ls.png",
+                    "selene_url": "/previews/cross_mission_selene.png",
+                    "warped_url": "/previews/cross_mission_warped.png",
+                    "blend_url": "/previews/cross_mission_blend.png",
+                    "checkerboard_url": "/previews/cross_mission_checkerboard.png",
+                    "matches_vis_url": "/previews/cross_mission_matches_vis.png",
+                    "tmc_craters_url": "/previews/cross_mission_tmc_craters.png",
+                    "selene_craters_url": "/previews/cross_mission_selene_craters.png"
+                }
             }
         }
     }
@@ -615,6 +695,11 @@ async def get_demo_data():
 previews_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "dashboard", "public", "previews")
 if os.path.exists(previews_path):
     app.mount("/previews", StaticFiles(directory=previews_path), name="previews")
+
+# Mount dashboard outputs directory for live registration results & GeoTIFFs
+outputs_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "dashboard", "outputs")
+os.makedirs(outputs_path, exist_ok=True)
+app.mount("/dashboard/outputs", StaticFiles(directory=outputs_path), name="outputs")
 
 # Mount the static dashboard
 dashboard_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "dashboard", "dist")

@@ -43,12 +43,12 @@ graph TD
 LUMEN employs a highly modular, 7-stage architecture to rigorously process PDS4 archives down to sub-pixel accuracy.
 
 ### 1. Ingestion & Metadata Parsing
-- **Rationale**: ISRO delivers data in the planetary standard PDS4 format. Imagery is separated into raw binary `.img` files and `.xml` sidecars. 
-- **Action**: The `PDS4Ingester` reads the XML, extracting critical metadata such as native resolution (GSD), solar incidence/emission angles, and the bounding footprint coordinates.
+- **Rationale**: ISRO delivers data in the planetary standard PDS4 format (.img with .xml sidecars), while external missions like JAXA SELENE use PDS3 (.img with .lbl headers).
+- **Action**: The `PDS4Ingester` and `SeleneAdapter` automatically detect the format, extracting critical metadata such as native resolution (GSD), solar incidence/emission angles, and the bounding footprint coordinates. For SELENE products, memory-mapped raster slicing enables zero-RAM overhead ingestion.
 
 ### 2. Orthorectification
 - **Rationale**: Spacecraft capture distorted images due to camera angle and planetary curvature. Raw pixels cannot be compared directly.
-- **Action**: Uses `rasterio` and GDAL to warp the raw `.img` pixels onto a flat Geographic Coordinate System (EPSG:4326). It utilizes Ground Control Point (GCP) CSVs or pixel-level location images (IIRS) to perform the reprojection. 
+- **Action**: Uses `rasterio` and GDAL to warp the raw `.img` pixels onto a flat Geographic Coordinate System (EPSG:4326). It utilizes Ground Control Point (GCP) CSVs or pixel-level location images (IIRS) to perform the reprojection with cosine-latitude polar anisotropy correction. Reference products already orthorectified (e.g. SELENE TCORT) are cleanly ingested and georeferenced directly.
 - **Tech Stack**: Python `rasterio.warp.reproject` using `Resampling.lanczos`.
 
 ### 3. Overlap Cropping
@@ -60,8 +60,8 @@ LUMEN employs a highly modular, 7-stage architecture to rigorously process PDS4 
 - **Action**: Applies Contrast Limited Adaptive Histogram Equalization (CLAHE) and performs solar angle compensation based on the XML metadata to standardize the visual appearance of craters.
 
 ### 5. Multi-modal Matching
-- **Rationale**: To align the images, we must find identical physical features (like crater rims) in both images.
-- **Action**: Uses feature detectors (SIFT, ORB, or SuperPoint) to extract keypoints. It then utilizes advanced matching algorithms (like MAGSAC++) to find correspondences that are invariant to scale and rotation.
+- **Rationale**: To align the images, we must find identical physical features (like crater rims) across same-sensor stereo pairs or disparate cross-mission optical sensors.
+- **Action**: Uses feature detectors (SIFT, ORB, or SuperPoint) to extract keypoints. It then utilizes advanced matching algorithms (like MAGSAC++) to find correspondences that are invariant to scale and rotation. For cross-sensor optical data (e.g., TMC vs SELENE TC), multi-scale feature pyramids and phase-congruency descriptors (RIFT2) are evaluated.
 
 ### 6. Homography Alignment
 - **Rationale**: Keypoint matches always contain false positives (outliers). 

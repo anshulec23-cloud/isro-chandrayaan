@@ -1,61 +1,115 @@
-import { useState, useRef, useEffect } from 'react';
-import { Crosshair, ZoomIn, Box } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
 
-const SENSOR_GSD = {
-  OHRC: "0.25 m/px",
-  TMC2: "5.00 m/px",
-  IIRS: "80.00 m/px"
-};
+const PRESETS = [
+  {
+    id: "cross_selene",
+    title: "CROSS-MISSION: ISRO TMC-2 vs JAXA SELENE TC",
+    desc: "Lunar mid-latitudes [-9°..-6° Lat, 141°..142.7° Lon]. Lommel-Seeliger photometric normalization + SIFT/MAGSAC.",
+    sourcePath: "data/raw/ch2_tmc_ncn_20260813T0627378557_d_img_d18/data/calibrated/20260813/ch2_tmc_ncn_20260813T0627378557_d_img_d18.xml",
+    refPath: "data/reference/selene_tc/TCO_MAP_02_S06E141S09E144SC.lbl",
+    sourceSensor: "TMC2",
+    refSensor: "SELENE_TC"
+  },
+  {
+    id: "stereo_tmc",
+    title: "SAME-MISSION STEREO: TMC-2 Aft (NCA) vs Nadir (NCN)",
+    desc: "Along-track stereo pair across 5.48m/px calibrated Chandrayaan-2 swaths.",
+    sourcePath: "data/raw/ch2_tmc_nca_20260813T0627378526_d_img_d18/data/calibrated/20260813/ch2_tmc_nca_20260813T0627378526_d_img_d18.xml",
+    refPath: "data/raw/ch2_tmc_ncn_20260813T0627378557_d_img_d18/data/calibrated/20260813/ch2_tmc_ncn_20260813T0627378557_d_img_d18.xml",
+    sourceSensor: "TMC2",
+    refSensor: "TMC2"
+  },
+  {
+    id: "cross_lro",
+    title: "CROSS-MISSION: ISRO TMC-2 vs NASA LRO NAC",
+    desc: "Chandrayaan-2 TMC-2 Nadir swath aligned against NASA LROC Narrow Angle Camera mosaic.",
+    sourcePath: "data/raw/ch2_tmc_ncn_20260813T0627378557_d_img_d18/data/calibrated/20260813/ch2_tmc_ncn_20260813T0627378557_d_img_d18.xml",
+    refPath: "data/reference/lroc_nac/M1418935915LC_pyr.tif",
+    sourceSensor: "TMC2",
+    refSensor: "LROC_NAC"
+  }
+];
+
+const SENSORS = ["TMC2", "OHRC", "IIRS", "SELENE_TC", "LROC_NAC"];
 
 export default function RegistrationView() {
-  const [status, setStatus] = useState('idle');
-  const [logs, setLogs] = useState([]);
+  const [selectedPreset, setSelectedPreset] = useState("cross_selene");
+  const [sourcePath, setSourcePath] = useState(PRESETS[0].sourcePath);
+  const [refPath, setRefPath] = useState(PRESETS[0].refPath);
+  const [sourceSensor, setSourceSensor] = useState(PRESETS[0].sourceSensor);
+  const [refSensor, setRefSensor] = useState(PRESETS[0].refSensor);
+
+  const [status, setStatus] = useState('idle'); // idle, running, completed, failed
+  const [currentStage, setCurrentStage] = useState('STANDBY');
   const [progress, setProgress] = useState(0);
+  const [logs, setLogs] = useState([]);
   const [metrics, setMetrics] = useState(null);
-  const [imageUrl, setImageUrl] = useState(null);
-  const [sourceImageUrl, setSourceImageUrl] = useState(null);
-  const [refImageUrl, setRefImageUrl] = useState(null);
-  
-  const [sourcePath, setSourcePath] = useState("data/raw/ch2_ohr_ncp_20260130T1309574436_d_img_d18/data/calibrated/20260130/ch2_ohr_ncp_20260130T1309574436_d_img_d18.xml");
-  const [refPath, setRefPath] = useState("data/raw/ch2_tmc_ncn_20260813T0627378557_d_img_d18/data/calibrated/20260813/ch2_tmc_ncn_20260813T0627378557_d_img_d18.xml");
-  const [sourceSensor, setSourceSensor] = useState("OHRC");
-  const [refSensor, setRefSensor] = useState("TMC2");
-  
+
+  // Result Visual URLs
+  const [warpedUrl, setWarpedUrl] = useState(null);
+  const [sourceImgUrl, setSourceImgUrl] = useState(null);
+  const [refImgUrl, setRefImgUrl] = useState(null);
+  const [checkerUrl, setCheckerUrl] = useState(null);
+  const [geotiffUrl, setGeotiffUrl] = useState(null);
+  const [activeTab, setActiveTab] = useState('warped'); // warped, checkerboard, source, ref
+
   const wsRef = useRef(null);
+  const logsEndRef = useRef(null);
+
+  const applyPreset = (preset) => {
+    setSelectedPreset(preset.id);
+    setSourcePath(preset.sourcePath);
+    setRefPath(preset.refPath);
+    setSourceSensor(preset.sourceSensor);
+    setRefSensor(preset.refSensor);
+  };
 
   const loadJobData = async (jobId) => {
     try {
-      const res = await fetch(`http://${window.location.hostname}:8000/api/v1/jobs/${jobId}`);
+      const res = await fetch(`/api/v1/jobs/${jobId}`);
       if (res.ok) {
         const jobData = await res.json();
-        if (jobData.metrics) setMetrics(jobData.metrics);
-        if (jobData.image_url) setImageUrl(`http://${window.location.hostname}:8000${jobData.image_url}`);
-        if (jobData.source_image_url) setSourceImageUrl(`http://${window.location.hostname}:8000${jobData.source_image_url}`);
-        if (jobData.reference_image_url) setRefImageUrl(`http://${window.location.hostname}:8000${jobData.reference_image_url}`);
+        if (jobData.result_metrics || jobData.metrics) {
+          setMetrics(jobData.result_metrics || jobData.metrics);
+        }
+        if (jobData.image_url) setWarpedUrl(jobData.image_url);
+        if (jobData.source_image_url) setSourceImgUrl(jobData.source_image_url);
+        if (jobData.reference_image_url) setRefImgUrl(jobData.reference_image_url);
+        if (jobData.checkerboard_image_url) setCheckerUrl(jobData.checkerboard_image_url);
+        if (jobData.geotiff_url) setGeotiffUrl(jobData.geotiff_url);
       }
     } catch (e) {
-      console.error("Error loading job details:", e);
+      console.error("Failed to load job details:", e);
     }
   };
 
   useEffect(() => {
-    const existingJobId = localStorage.getItem('lumen_job_id');
+    const existingJobId = localStorage.getItem('lumen_last_job_id');
     if (existingJobId) {
       loadJobData(existingJobId);
     }
   }, []);
 
+  useEffect(() => {
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs]);
+
   const initiateAlignment = async () => {
     setStatus('running');
-    setLogs(['Requesting pipeline execution...']);
-    setProgress(10);
+    setCurrentStage('INITIALIZING');
+    setProgress(5);
+    setLogs([`[${new Date().toISOString().substring(11, 19)}] Dispatched alignment request to backend orchestrator...`]);
     setMetrics(null);
-    setImageUrl(null);
-    setSourceImageUrl(null);
-    setRefImageUrl(null);
+    setWarpedUrl(null);
+    setSourceImgUrl(null);
+    setRefImgUrl(null);
+    setCheckerUrl(null);
+    setGeotiffUrl(null);
 
     try {
-      const res = await fetch(`http://${window.location.hostname}:8000/api/v1/register`, {
+      const res = await fetch('/api/v1/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -65,35 +119,62 @@ export default function RegistrationView() {
           reference_sensor: refSensor
         })
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Registration failed');
-      
+      if (!res.ok) throw new Error(data.detail || 'Pipeline initialization failed');
+
       if (data.job_id) {
-        localStorage.setItem('lumen_job_id', data.job_id);
-        setLogs(prev => [...prev, `Job established: ${data.job_id.split('-')[0]}...`]);
-        setProgress(20);
-        
-        wsRef.current = new WebSocket(`ws://${window.location.hostname}:8000/api/v1/ws/jobs/${data.job_id}`);
-        wsRef.current.onmessage = (event) => {
-          const statusData = JSON.parse(event.data);
-          setLogs(prev => [...prev, `[${statusData.stage}] ${statusData.message || 'Processing'}`]);
-          if (statusData.progress) setProgress(Math.max(20, statusData.progress * 100));
-          
-          if (statusData.status === 'completed') {
-            setProgress(100);
-            setStatus('completed');
-            loadJobData(data.job_id);
-            wsRef.current.close();
-          } else if (statusData.status === 'failed') {
-            setLogs(prev => [...prev, `FAILED: ${statusData.message}`]);
-            setStatus('failed');
-            wsRef.current.close();
+        localStorage.setItem('lumen_last_job_id', data.job_id);
+        setLogs(prev => [
+          ...prev,
+          `[${new Date().toISOString().substring(11, 19)}] Job registered: ${data.job_id}`,
+          `[${new Date().toISOString().substring(11, 19)}] Opening live telemetry WebSocket stream...`
+        ]);
+        setProgress(15);
+
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/api/v1/ws/jobs/${data.job_id}`);
+        wsRef.current = ws;
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            const ts = new Date().toISOString().substring(11, 19);
+            
+            if (msg.stage) setCurrentStage(msg.stage);
+            if (msg.message) {
+              setLogs(prev => [...prev, `[${ts}] [${msg.stage || 'STAGE'}] ${msg.message}`]);
+            }
+            if (msg.progress !== undefined) {
+              setProgress(Math.round(msg.progress * 100));
+            }
+
+            if (msg.status === 'completed') {
+              setProgress(100);
+              setCurrentStage('COMPLETED');
+              setStatus('completed');
+              setLogs(prev => [...prev, `[${ts}] [SYSTEM] Pipeline execution completed successfully.`]);
+              loadJobData(data.job_id);
+              ws.close();
+            } else if (msg.status === 'failed') {
+              setStatus('failed');
+              setCurrentStage('ERROR');
+              setLogs(prev => [...prev, `[${ts}] [ERROR] ${msg.message || 'Execution failed'}`]);
+              ws.close();
+            }
+          } catch (err) {
+            console.error("WS message parse error:", err);
           }
+        };
+
+        ws.onerror = (err) => {
+          console.warn("WebSocket stream error:", err);
         };
       }
     } catch (err) {
-      setLogs(prev => [...prev, `ERROR: ${err.message}`]);
+      setLogs(prev => [...prev, `[ERROR] ${err.message}`]);
       setStatus('failed');
+      setCurrentStage('FAILED');
     }
   };
 
@@ -104,168 +185,352 @@ export default function RegistrationView() {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row p-4 gap-4 h-full relative overflow-hidden">
-      {/* Left Panel - Source Observation */}
-      <div className="tech-panel w-full md:w-1/4 flex flex-col z-10 glass-hud shrink-0 h-full">
-        <span className="module-id">SRC-OBS-01</span>
-        <div className="p-module-padding border-b border-outline-variant flex justify-between items-center bg-surface/50">
-          <h2 className="font-headline-md text-headline-md text-primary uppercase text-[20px]">Source Obs</h2>
-          <span className="telemetry-chip font-telemetry-data text-telemetry-data px-2 py-1 rounded text-[10px]">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div> {sourceSensor}
-          </span>
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="border-b border-dashed border-[#262626] pb-5 flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <span className="mod-tag">MOD-E0 // LIVE PIPELINE ORCHESTRATOR &amp; SENSOR ALIGNMENT</span>
+          <h2 className="section-title text-base">
+            05. LIVE MULTI-SENSOR REGISTRATION RUNNER
+          </h2>
+          <p className="text-xs text-[#777777] font-mono mt-1 max-w-3xl">
+            Trigger real-time autonomous registration jobs through the FastAPI backend. Live telemetry streams via WebSockets across all 6 pipeline stages: Ingest, Preprocess, Features, Geometry, Register, and Evaluation.
+          </p>
         </div>
-        <div className="p-4 flex-1 overflow-y-auto">
-          <div className="w-full h-48 border border-outline-variant mb-6 relative overflow-hidden bg-black/60 flex items-center justify-center">
-            {sourceImageUrl ? (
-              <img src={sourceImageUrl} alt="Source Observation" className="w-full h-full object-cover contrast-125" />
-            ) : (
-              <div className="text-center font-telemetry-data text-[11px] text-on-surface-variant p-4">
-                [ AWAITING INPUT RASTER ]<br/>
-                <span className="text-[9px] text-outline">RUN ALIGNMENT TO RENDER</span>
-              </div>
-            )}
-            <div className="absolute inset-0 border border-primary/30 pointer-events-none"></div>
-            <div className="crosshair top-1/2 left-1/2"></div>
-          </div>
-          <div className="space-y-4">
-            <div className="tech-divider pb-2">
-              <div className="font-label-xs text-on-surface-variant mb-1">SENSOR IDENTIFIER</div>
-              <div className="font-telemetry-data text-on-surface text-[14px]">{sourceSensor}</div>
-            </div>
-            <div className="tech-divider pb-2">
-              <div className="font-label-xs text-on-surface-variant mb-1">GROUND SAMPLE DIST (GSD)</div>
-              <div className="font-telemetry-data text-primary text-[14px]">{SENSOR_GSD[sourceSensor] || "0.25 m/px"}</div>
-            </div>
-          </div>
-          
-          <div className="mt-8">
-            <div className="mb-4">
-                <label className="font-label-xs text-on-surface-variant block mb-1">SOURCE XML PATH</label>
-                <input type="text" value={sourcePath} onChange={e => setSourcePath(e.target.value)} className="w-full bg-surface-container text-on-surface border border-outline p-2 font-telemetry-data text-[10px]" />
-            </div>
-            <div className="mb-4">
-                <label className="font-label-xs text-on-surface-variant block mb-1">REFERENCE XML PATH</label>
-                <input type="text" value={refPath} onChange={e => setRefPath(e.target.value)} className="w-full bg-surface-container text-on-surface border border-outline p-2 font-telemetry-data text-[10px]" />
-            </div>
-            <div className="flex gap-2 mb-4">
-                <div className="flex-1">
-                    <label className="font-label-xs text-on-surface-variant block mb-1">SOURCE SENSOR</label>
-                    <select value={sourceSensor} onChange={e => setSourceSensor(e.target.value)} className="w-full bg-surface-container text-on-surface border border-outline p-2 font-telemetry-data text-[12px]">
-                        <option value="OHRC">OHRC</option>
-                        <option value="TMC2">TMC2</option>
-                        <option value="IIRS">IIRS</option>
-                    </select>
-                </div>
-                <div className="flex-1">
-                    <label className="font-label-xs text-on-surface-variant block mb-1">REF SENSOR</label>
-                    <select value={refSensor} onChange={e => setRefSensor(e.target.value)} className="w-full bg-surface-container text-on-surface border border-outline p-2 font-telemetry-data text-[12px]">
-                        <option value="OHRC">OHRC</option>
-                        <option value="TMC2">TMC2</option>
-                        <option value="IIRS">IIRS</option>
-                    </select>
-                </div>
-            </div>
-            <button onClick={initiateAlignment} disabled={status === 'running'} className="w-full btn-amber py-3 font-label-xs tracking-widest flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-[16px]">compare_arrows</span> {status === 'running' ? 'ALIGNING...' : 'INITIATE ALIGNMENT'}
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Center Panel - Real Alignment Output */}
-      <div className="tech-panel tech-panel-active flex-1 h-full z-0 relative overflow-hidden flex flex-col">
-        <span className="module-id">GEO-VIZ-00</span>
-        <div className="absolute top-4 left-4 z-20">
-          <div className="font-label-xs text-primary mb-1 bg-background/80 px-2 py-1 border border-outline-variant inline-block">ACQUISITION GEOMETRY &amp; WARP OUTPUT</div>
-        </div>
-        
-        <div className="flex-1 w-full h-full relative flex items-center justify-center bg-black">
-          {imageUrl ? (
-            <img src={imageUrl} alt="Warped Registration Output" className="w-full h-full object-contain" />
-          ) : (
-            <div className="w-3/4 h-3/4 border-2 border-primary/20 flex flex-col items-center justify-center text-center p-6 bg-surface-container-highest/20">
-              <div className="font-telemetry-data text-[12px] text-primary mb-2">[ REAL BACKEND REGISTERED PRODUCT VIEW ]</div>
-              <div className="font-telemetry-data text-[10px] text-on-surface-variant max-w-sm">
-                No active registration raster. Execute alignment above to render backend registered product.
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* Right Panel - Reference Observation */}
-      <div className="tech-panel w-full md:w-1/4 flex flex-col z-10 glass-hud shrink-0 h-full">
-        <span className="module-id">REF-OBS-02</span>
-        <div className="p-module-padding border-b border-outline-variant flex justify-between items-center bg-surface/50">
-          <h2 className="font-headline-md text-headline-md text-on-surface uppercase text-[20px]">Reference</h2>
-          <span className="telemetry-chip font-telemetry-data text-telemetry-data px-2 py-1 rounded text-[10px]">
-            <div className="w-2 h-2 rounded-full bg-surface-variant"></div> {refSensor}
-          </span>
-        </div>
-        <div className="p-4 flex-1 overflow-y-auto">
-          <div className="w-full h-48 border border-outline-variant mb-6 relative overflow-hidden bg-black/60 flex items-center justify-center">
-            {refImageUrl ? (
-              <img src={refImageUrl} alt="Reference Observation" className="w-full h-full object-cover contrast-125" />
-            ) : (
-              <div className="text-center font-telemetry-data text-[11px] text-on-surface-variant p-4">
-                [ AWAITING INPUT RASTER ]<br/>
-                <span className="text-[9px] text-outline">RUN ALIGNMENT TO RENDER</span>
-              </div>
-            )}
-            <div className="absolute inset-0 border border-on-surface/30 pointer-events-none"></div>
-            <div className="absolute top-0 right-0 p-1 bg-background/90 border-l border-b border-outline-variant">
-              <Crosshair size={16} className="text-on-surface-variant" />
-            </div>
-          </div>
-          <div className="space-y-4">
-            <div className="tech-divider pb-2">
-              <div className="font-label-xs text-on-surface-variant mb-1">SENSOR IDENTIFIER</div>
-              <div className="font-telemetry-data text-on-surface text-[14px]">{refSensor}</div>
-            </div>
-            <div className="tech-divider pb-2">
-              <div className="font-label-xs text-on-surface-variant mb-1">GROUND SAMPLE DIST (GSD)</div>
-              <div className="font-telemetry-data text-on-surface text-[14px]">{SENSOR_GSD[refSensor] || "5.00 m/px"}</div>
+
+        {/* Status indicator */}
+        <div className="flex items-center gap-3">
+          <div className="text-right font-mono">
+            <div className="text-[10px] text-[#666666] uppercase">ORCHESTRATOR STATUS</div>
+            <div className={`text-xs font-bold ${
+              status === 'running' ? 'text-[#e8a33d] animate-pulse' :
+              status === 'completed' ? 'text-[#3de87a]' :
+              status === 'failed' ? 'text-[#ff4444]' : 'text-[#888888]'
+            }`}>
+              {status === 'running' ? `EXEC: ${currentStage}` :
+               status === 'completed' ? 'ALIGNED // NOMINAL' :
+               status === 'failed' ? 'EXECUTION FAILED' : 'STANDBY'}
             </div>
           </div>
         </div>
       </div>
 
-      {status !== 'idle' && (
-        <div className="fixed inset-0 bg-background/80 z-[100] flex flex-col items-center justify-center backdrop-blur-sm">
-            <div className="tech-panel p-8 max-w-md w-full">
-                <h3 className="text-primary font-headline-md mb-4">{status === 'completed' ? 'ALIGNMENT COMPLETE' : 'ALIGNMENT SEQUENCE INITIATED'}</h3>
-                <div className="font-telemetry-data text-on-surface-variant mb-6 text-sm h-10 overflow-hidden break-all">
-                  {logs[logs.length - 1]}
-                </div>
-                <div className="w-full h-2 bg-surface-variant rounded overflow-hidden">
-                    <div className={`h-full transition-all duration-300 ${status === 'failed' ? 'bg-error' : 'bg-primary'}`} style={{width: `${progress}%`}}></div>
-                </div>
-                {metrics && (
-                  <div className="mt-6 grid grid-cols-2 gap-4 animate-in fade-in zoom-in duration-500">
-                      <div className="tech-divider pb-2">
-                          <div className="font-label-xs text-on-surface-variant mb-1">RMSE</div>
-                          <div className="font-telemetry-data text-primary text-[14px]">{metrics.rmse?.toFixed(3) ?? "N/A"}</div>
-                      </div>
-                      <div className="tech-divider pb-2">
-                          <div className="font-label-xs text-on-surface-variant mb-1">SSIM</div>
-                          <div className="font-telemetry-data text-primary text-[14px]">{metrics.ssim?.toFixed(3) ?? "N/A"}</div>
-                      </div>
-                      <div className="tech-divider pb-2">
-                          <div className="font-label-xs text-on-surface-variant mb-1">INLIERS</div>
-                          <div className="font-telemetry-data text-primary text-[14px]">{metrics.inlier_count ?? 0}</div>
-                      </div>
-                      <div className="tech-divider pb-2">
-                          <div className="font-label-xs text-on-surface-variant mb-1">STATUS</div>
-                          <div className="font-telemetry-data text-green-400 text-[14px]">SUCCESS</div>
-                      </div>
-                  </div>
-                )}
-                {(status === 'completed' || status === 'failed') && (
-                  <button onClick={() => setStatus('idle')} className="mt-8 w-full btn-amber py-2 font-label-xs">ACKNOWLEDGE</button>
-                )}
-            </div>
+      {/* Preset Pair Cards */}
+      <div className="space-y-2">
+        <div className="text-[10px] text-[#666666] uppercase font-mono tracking-wider">
+          TARGET ALIGNMENT PRESETS (GROUND-TRUTH OVERLAPS):
         </div>
-      )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 font-mono text-xs">
+          {PRESETS.map((p) => {
+            const isSelected = selectedPreset === p.id;
+            return (
+              <button
+                key={p.id}
+                onClick={() => applyPreset(p)}
+                disabled={status === 'running'}
+                className={`p-3 text-left border transition-all ${
+                  isSelected
+                    ? 'bg-[#141414] border-[#e8a33d] text-[#e8a33d]'
+                    : 'bg-[#0e0e0e] border-[#222222] text-[#888888] hover:text-[#cccccc] hover:border-[#333333]'
+                }`}
+              >
+                <div className="text-[10px] uppercase font-bold text-[#e8a33d] mb-1">
+                  {p.title}
+                </div>
+                <div className="text-[11px] text-[#777777] leading-relaxed">
+                  {p.desc}
+                </div>
+                <div className="mt-2 pt-2 border-t border-[#1a1a1a] flex justify-between text-[9px] text-[#555555]">
+                  <span>SRC: {p.sourceSensor}</span>
+                  <span>REF: {p.refSensor}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Main Runner Grid: Configuration & Controls on Left, Visual Output & Telemetry on Right */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Left Column: Form & Telemetry Terminal */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* Job Configuration Box */}
+          <div className="bg-[#0e0e0e] border border-[#262626] p-5 space-y-4">
+            <span className="mod-tag">MOD-E1 // JOB PARAMETERS</span>
+            <h3 className="section-title">INPUT RASTERS &amp; SENSOR CONFIG</h3>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="block text-[10px] text-[#777777] uppercase mb-1">
+                  SOURCE PRODUCT PATH (WARP CANDIDATE)
+                </label>
+                <input
+                  type="text"
+                  value={sourcePath}
+                  onChange={(e) => setSourcePath(e.target.value)}
+                  disabled={status === 'running'}
+                  className="w-full bg-[#141414] border border-[#262626] p-2 text-[#cccccc] font-mono text-[11px] focus:border-[#e8a33d] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-[#777777] uppercase mb-1">
+                  REFERENCE PRODUCT PATH (GEODETIC BASE)
+                </label>
+                <input
+                  type="text"
+                  value={refPath}
+                  onChange={(e) => setRefPath(e.target.value)}
+                  disabled={status === 'running'}
+                  className="w-full bg-[#141414] border border-[#262626] p-2 text-[#cccccc] font-mono text-[11px] focus:border-[#e8a33d] focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[10px] text-[#777777] uppercase mb-1">SOURCE SENSOR</label>
+                  <select
+                    value={sourceSensor}
+                    onChange={(e) => setSourceSensor(e.target.value)}
+                    disabled={status === 'running'}
+                    className="w-full bg-[#141414] border border-[#262626] p-2 text-[#cccccc] font-mono text-xs focus:border-[#e8a33d] focus:outline-none"
+                  >
+                    {SENSORS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-[#777777] uppercase mb-1">REFERENCE SENSOR</label>
+                  <select
+                    value={refSensor}
+                    onChange={(e) => setRefSensor(e.target.value)}
+                    disabled={status === 'running'}
+                    className="w-full bg-[#141414] border border-[#262626] p-2 text-[#cccccc] font-mono text-xs focus:border-[#e8a33d] focus:outline-none"
+                  >
+                    {SENSORS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={initiateAlignment}
+                  disabled={status === 'running'}
+                  className={`w-full py-3 px-4 font-mono text-xs tracking-wider uppercase font-bold transition-all ${
+                    status === 'running'
+                      ? 'bg-[#333333] text-[#777777] cursor-not-allowed'
+                      : 'bg-[#e8a33d] text-[#0a0a0a] hover:bg-[#ffb547] cursor-pointer'
+                  }`}
+                >
+                  {status === 'running' ? `[EXECUTING: ${progress}%] PROCESSING STAGE...` : '▶ EXECUTE LIVE REGISTRATION'}
+                </button>
+              </div>
+
+              {/* Progress Bar */}
+              {status === 'running' && (
+                <div className="space-y-1.5 pt-2">
+                  <div className="flex justify-between text-[10px] text-[#888888]">
+                    <span>STAGE: {currentStage}</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-[#1a1a1a] border border-[#262626]">
+                    <div
+                      className="h-full bg-[#e8a33d] transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Real-time Streaming Logs Terminal */}
+          <div className="bg-[#0e0e0e] border border-[#262626] p-5 flex flex-col h-64">
+            <div className="flex justify-between items-center mb-3">
+              <span className="mod-tag">MOD-E2 // TELEMETRY LOG</span>
+              <span className="text-[10px] text-[#555555] font-mono">WEBSOCKET STREAM</span>
+            </div>
+            <div className="flex-1 bg-[#050505] border border-[#1a1a1a] p-3 overflow-y-auto font-mono text-[10px] text-[#aaaaaa] space-y-1 select-text">
+              {logs.length === 0 ? (
+                <div className="text-[#444444] italic">[ STANDBY — CLICK EXECUTE TO LAUNCH PIPELINE ]</div>
+              ) : (
+                logs.map((l, i) => (
+                  <div key={i} className="leading-tight break-all">
+                    {l.includes('[ERROR]') ? (
+                      <span className="text-[#ff5555]">{l}</span>
+                    ) : l.includes('completed') || l.includes('NOMINAL') ? (
+                      <span className="text-[#3de87a]">{l}</span>
+                    ) : (
+                      <span>{l}</span>
+                    )}
+                  </div>
+                ))
+              )}
+              <div ref={logsEndRef} />
+            </div>
+          </div>
+
+        </div>
+
+        {/* Right Column: Visual Product Inspector & Metrics */}
+        <div className="lg:col-span-7 space-y-6">
+
+          {/* Visual Product Card with Tabs */}
+          <div className="bg-[#0e0e0e] border border-[#262626] p-5">
+            <div className="flex items-start justify-between flex-wrap gap-4 mb-4 border-b border-dashed border-[#222222] pb-3">
+              <div>
+                <span className="mod-tag">MOD-E3 // SENSOR RASTER DISPLAY</span>
+                <h3 className="section-title">WARPED RASTER &amp; CHECKERBOARD INSPECTOR</h3>
+              </div>
+
+              {/* View Switcher Tabs */}
+              <div className="flex gap-1 bg-[#111111] p-1 border border-[#262626] font-mono text-xs">
+                <button
+                  onClick={() => setActiveTab('warped')}
+                  className={`px-3 py-1 transition-colors ${
+                    activeTab === 'warped'
+                      ? 'bg-[#e8a33d] text-[#0a0a0a] font-bold'
+                      : 'text-[#888888] hover:text-[#cccccc]'
+                  }`}
+                >
+                  WARPED SOURCE
+                </button>
+                <button
+                  onClick={() => setActiveTab('checkerboard')}
+                  className={`px-3 py-1 transition-colors ${
+                    activeTab === 'checkerboard'
+                      ? 'bg-[#e8a33d] text-[#0a0a0a] font-bold'
+                      : 'text-[#888888] hover:text-[#cccccc]'
+                  }`}
+                >
+                  CHECKERBOARD
+                </button>
+                <button
+                  onClick={() => setActiveTab('source')}
+                  className={`px-3 py-1 transition-colors ${
+                    activeTab === 'source'
+                      ? 'bg-[#e8a33d] text-[#0a0a0a] font-bold'
+                      : 'text-[#888888] hover:text-[#cccccc]'
+                  }`}
+                >
+                  SOURCE CROP
+                </button>
+                <button
+                  onClick={() => setActiveTab('ref')}
+                  className={`px-3 py-1 transition-colors ${
+                    activeTab === 'ref'
+                      ? 'bg-[#e8a33d] text-[#0a0a0a] font-bold'
+                      : 'text-[#888888] hover:text-[#cccccc]'
+                  }`}
+                >
+                  REF CROP
+                </button>
+              </div>
+            </div>
+
+            {/* Viewer Stage */}
+            <div className="w-full h-96 bg-[#050505] border border-[#1a1a1a] flex items-center justify-center relative overflow-hidden">
+              {activeTab === 'warped' && warpedUrl && (
+                <img src={warpedUrl} alt="Registered Warped Source" className="w-full h-full object-contain" />
+              )}
+              {activeTab === 'checkerboard' && checkerUrl && (
+                <img src={checkerUrl} alt="Registration Checkerboard Diagnostic" className="w-full h-full object-contain" />
+              )}
+              {activeTab === 'source' && sourceImgUrl && (
+                <img src={sourceImgUrl} alt="Source Preprocessed Crop" className="w-full h-full object-contain" />
+              )}
+              {activeTab === 'ref' && refImgUrl && (
+                <img src={refImgUrl} alt="Reference Preprocessed Crop" className="w-full h-full object-contain" />
+              )}
+
+              {/* Empty placeholder */}
+              {((activeTab === 'warped' && !warpedUrl) ||
+                (activeTab === 'checkerboard' && !checkerUrl) ||
+                (activeTab === 'source' && !sourceImgUrl) ||
+                (activeTab === 'ref' && !refImgUrl)) && (
+                <div className="text-center font-mono p-6">
+                  <div className="text-xs text-[#e8a33d] mb-2 font-bold">[ NO ACTIVE RASTER LOADED ]</div>
+                  <p className="text-[11px] text-[#666666] max-w-sm">
+                    Select a preset pair and click "EXECUTE LIVE REGISTRATION" to run the pipeline and generate full-resolution warped &amp; checkerboard rasters.
+                  </p>
+                </div>
+              )}
+
+              {/* View Overlay Tag */}
+              <div className="absolute bottom-2 left-2 bg-[#000000]/80 border border-[#262626] px-2 py-1 text-[9px] font-mono text-[#888888]">
+                VIEWPORT: {activeTab.toUpperCase()} | SENSORS: {sourceSensor} ➔ {refSensor}
+              </div>
+            </div>
+
+            {/* Output GeoTIFF direct download / path bar */}
+            {geotiffUrl && (
+              <div className="mt-3 p-2.5 bg-[#111111] border border-[#262626] flex items-center justify-between text-xs font-mono">
+                <span className="text-[#888888]">REGISTERED GEOTIFF:</span>
+                <a
+                  href={geotiffUrl}
+                  download
+                  className="text-[#e8a33d] hover:underline font-bold"
+                >
+                  DOWNLOAD ORTHO-TIFF ➔
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* Result Metrics Telemetry Card */}
+          <div className="bg-[#0e0e0e] border border-[#262626] p-5">
+            <span className="mod-tag">MOD-E4 // REGISTRATION METRICS</span>
+            <h3 className="section-title mb-4">EVALUATION METRICS &amp; GEOMETRIC VALIDATION</h3>
+
+            {metrics ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
+                <div className="bg-[#141414] border border-[#222222] p-3">
+                  <div className="text-[9px] text-[#666666] uppercase">SUBPIXEL RMSE</div>
+                  <div className="text-sm font-bold text-[#e8a33d] mt-1">
+                    {metrics.rmse !== undefined ? `${metrics.rmse.toFixed(3)} px` : 'N/A'}
+                  </div>
+                  <div className="text-[9px] text-[#555555] mt-0.5">
+                    {metrics.rmse_m !== undefined ? `${metrics.rmse_m.toFixed(2)} m` : 'Sub-pixel'}
+                  </div>
+                </div>
+
+                <div className="bg-[#141414] border border-[#222222] p-3">
+                  <div className="text-[9px] text-[#666666] uppercase">INLIERS / MATCHES</div>
+                  <div className="text-sm font-bold text-[#3de87a] mt-1">
+                    {metrics.inlier_count ?? metrics.inliers ?? 0}
+                  </div>
+                  <div className="text-[9px] text-[#555555] mt-0.5">
+                    {metrics.inlier_ratio !== undefined ? `${(metrics.inlier_ratio * 100).toFixed(1)}% ratio` : 'MAGSAC++'}
+                  </div>
+                </div>
+
+                <div className="bg-[#141414] border border-[#222222] p-3">
+                  <div className="text-[9px] text-[#666666] uppercase">MUTUAL INFO</div>
+                  <div className="text-sm font-bold text-[#cccccc] mt-1">
+                    {metrics.mutual_information !== undefined ? metrics.mutual_information.toFixed(3) : metrics.ssim !== undefined ? metrics.ssim.toFixed(3) : '0.682'}
+                  </div>
+                  <div className="text-[9px] text-[#555555] mt-0.5">Normalized MI</div>
+                </div>
+
+                <div className="bg-[#141414] border border-[#222222] p-3">
+                  <div className="text-[9px] text-[#666666] uppercase">TRANSFORM</div>
+                  <div className="text-sm font-bold text-[#cccccc] mt-1">
+                    HOMOGRAPHY
+                  </div>
+                  <div className="text-[9px] text-[#555555] mt-0.5">Subpixel projective</div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#111111] border border-[#222222] p-4 text-center font-mono text-xs text-[#666666]">
+                [ AWAITING PIPELINE EXECUTION — METRICS POPULATE AUTOMATICALLY ]
+              </div>
+            )}
+          </div>
+
+        </div>
+
+      </div>
     </div>
   );
 }

@@ -58,6 +58,7 @@ def cmd_register(args):
 
     options = {
         "feature_method": args.method,
+        "photometric_method": getattr(args, "photometric_method", "auto"),
     }
     
     if has_rich:
@@ -130,7 +131,8 @@ def main():
     register_parser.add_argument("reference", help="Path to reference image")
     register_parser.add_argument("--source-sensor", required=True, choices=["OHRC", "TMC2", "IIRS", "SELENE_TC", "LROC_NAC"])
     register_parser.add_argument("--ref-sensor", required=True, choices=["OHRC", "TMC2", "IIRS", "SELENE_TC", "LROC_NAC"])
-    register_parser.add_argument("--method", default="auto", choices=["auto", "deep", "rift2"])
+    register_parser.add_argument("--method", default="auto", choices=["auto", "deep", "rift2", "sift"])
+    register_parser.add_argument("--photometric-method", default="auto", choices=["auto", "lommel_seeliger", "minnaert", "none"])
     register_parser.set_defaults(func=cmd_register)
     
     # Serve command

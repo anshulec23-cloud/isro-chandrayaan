@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { id: 2, label: "02. PIPELINE" },
   { id: 3, label: "03. EVALUATION" },
   { id: 4, label: "04. DATASETS" },
+  { id: 5, label: "05. LIVE RUNNER" },
 ];
 
 export default function NavigationSidebar({ activePage, onSelectPage }) {

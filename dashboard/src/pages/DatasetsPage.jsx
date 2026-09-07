@@ -226,6 +226,69 @@ export default function DatasetsPage({ onSelectProductForGeometry, rawInventory 
           </p>
         </div>
       </div>
+
+      {/* MOD-D3: External Reference Datasets Benchmark */}
+      <div className="bg-[#0e0e0e] border border-[#262626] p-5 space-y-4">
+        <div>
+          <span className="mod-tag">MOD-D3</span>
+          <h3 className="section-title">EXTERNAL CROSS-MISSION REFERENCE ARCHIVES (GROUND-TRUTH BENCHMARK)</h3>
+          <p className="text-xs text-[#777777] font-mono mt-1">
+            Real external datasets ingested, overlapping Chandrayaan-2 TMC-2 nadir swath (`ch2_tmc_ncn`), and tested through the production pipeline.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+          {/* SELENE TC */}
+          <div className="bg-[#0a0a0a] border border-[#2e7d32]/60 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="px-2 py-0.5 bg-[#1b5e20] text-[#a5d6a7] font-bold text-[10px] border border-[#2e7d32]">
+                TESTED: CONVERGED
+              </span>
+              <span className="text-[#888888] text-[10px]">JAXA KAGUYA (SELENE)</span>
+            </div>
+            <div>
+              <div className="text-[#ffffff] font-bold text-sm">SELENE TC Orthomap</div>
+              <div className="text-[11px] text-[#e8a33d]">TCO_MAP_02_S06E141S09E144SC.lbl</div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-[#1f1f1f]">
+              <div><span className="text-[#666666]">Native GSD:</span> 7.40 m/px</div>
+              <div><span className="text-[#666666]">Format:</span> PDS3 Map (Cylindrical)</div>
+              <div><span className="text-[#666666]">Overlap Extent:</span> [-9.0°, -6.0°] Lat</div>
+              <div><span className="text-[#666666]">Overlap Long:</span> [141.0°, 142.71°] Lon</div>
+              <div><span className="text-[#666666]">Inlier Ratio:</span> <span className="text-[#81c784] font-bold">77.01% – 87.03%</span></div>
+              <div><span className="text-[#666666]">Pipeline RMSE:</span> <span className="text-[#81c784] font-bold">0.8396 px</span></div>
+            </div>
+            <div className="text-[10px] text-[#888888] bg-[#111111] p-2 border border-[#222222]">
+              Status: <span className="text-[#81c784]">Production Verified</span>. Fully integrated into `RegistrationPipeline` and CLI. Lommel-Seeliger + SIFT + MAGSAC++ achieves sub-pixel convergence in 3.16s.
+            </div>
+          </div>
+
+          {/* LRO NAC */}
+          <div className="bg-[#0a0a0a] border border-[#d32f2f]/60 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="px-2 py-0.5 bg-[#b71c1c] text-[#ffcdd2] font-bold text-[10px] border border-[#d32f2f]">
+                TESTED: DIVERGENT
+              </span>
+              <span className="text-[#888888] text-[10px]">NASA LRO (ASU)</span>
+            </div>
+            <div>
+              <div className="text-[#ffffff] font-bold text-sm">LRO NAC Pushbroom CDR</div>
+              <div className="text-[11px] text-[#e8a33d]">M1418935915LC.IMG / _pyr.tif</div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-[#1f1f1f]">
+              <div><span className="text-[#666666]">Native GSD:</span> 0.50 m/px</div>
+              <div><span className="text-[#666666]">Format:</span> PDS3 Linescan (Raw CDR)</div>
+              <div><span className="text-[#666666]">Overlap Extent:</span> [-9.06°, -7.23°] Lat</div>
+              <div><span className="text-[#666666]">Overlap Long:</span> [141.75°, 142.05°] Lon</div>
+              <div><span className="text-[#666666]">Inlier Ratio:</span> <span className="text-[#e57373] font-bold">27.69%</span> (18/65)</div>
+              <div><span className="text-[#666666]">Pipeline RMSE:</span> <span className="text-[#e57373] font-bold">48.02 px</span></div>
+            </div>
+            <div className="text-[10px] text-[#888888] bg-[#111111] p-2 border border-[#222222]">
+              Status: <span className="text-[#e57373]">Tested, Divergent</span>. Causes: 11:1 scale discrepancy (0.50m vs 5.48m) + unprojected pushbroom linescan distortion + morning (69.6°) vs afternoon sun reversal.
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -170,3 +170,46 @@ Completely overhauled `dashboard/` to match the approved CRT mission control tel
 - Launcher script `START_DEMO.bat` verified.
 - Tested all 4 pages in browser via subagent with zero console errors. All interactive features (product switching, 3D geometry scene, stage transitions, alpha blend slider, and dataset inspection) functioning nominally.
 
+---
+
+## Milestone: Cross-Mission Registration Attempt & Root-Cause Analysis (Chandrayaan-2 vs JAXA SELENE TC)
+
+**Timestamp:** 2026-09-06T23:45:00+05:30
+
+### 1. Motivation & Public Search
+To fulfill the SIH problem statement's requirement of cross-mission registration against external orbital references (LRO NAC / SELENE TC) without guessing or attempting authenticated ISRO downloads:
+- Scanned public archives for spatial overlap against Chandrayaan-2 TMC-2 footprint (Lat [-29.51°, -3.62°], Lon [140.78°, 142.71°]).
+- Located confirmed overlap in JAXA's public SELENE/Kaguya Terrain Camera archive hosted on DARTS (ISAS/JAXA).
+- Target product: `TCO_MAP_02_S06E141S09E144SC` covering Lat [-9.0°, -6.0°], Lon [141.0°, 144.0°] at 10.0 m/pixel GSD.
+- Confirmed physical intersection with Chandrayaan-2 TMC-2 Nadir: **4,713 km²** of shared lunar terrain between Lat [-9.0°, -6.0°] and Lon [141.0°, 142.71°].
+
+### 2. Ingestion & Adapter Implementation
+- Downloaded PDS3 label (`.lbl`, 3.5 KB) and binary image (`.img`, 301.99 MB, 12288x12288 uint16 big-endian).
+- Implemented `lumen/ingest/selene_adapter.py`:
+  - Parses PDS3 header for map projection parameters (Equirectangular, center lat/lon, pixel resolution).
+  - Uses `numpy.memmap` for zero-RAM overhead windowed cropping.
+  - Generates georeferenced GeoTIFFs with proper CRS and affine transforms.
+- Updated `lumen/pipeline/orchestrator.py`:
+  - Added PDS3 `.lbl` detection and routing in `_ingest`.
+  - Added bypass in `_orthorectify_image` for already-orthorectified reference products (`is_orthorectified=True`).
+  - Added cross-mission optical matching support in `_extract_features`.
+  - Added `SELENE_TC` to CLI and API schemas.
+
+### 3. Pipeline Execution & Empirical Results
+- Executed full 7-stage registration pipeline on the TMC-2 vs SELENE TC intersection:
+  - Total pipeline runtime: 120.5 seconds.
+  - Extracted 126 candidate feature matches.
+  - RANSAC/MAGSAC++ filtering yielded only **4 inliers (3.17% inlier ratio)**.
+  - Feature matching failed to reach reliable geometric alignment.
+- **Statistical Disclosure on 5,070 px RMSE**: The raw logs report a homography residual of 5,070 pixels. This is a mathematical consequence of a degenerate minimal-sample (4-point) homography fit, not a valid accuracy measurement.
+
+### 4. Root-Cause Analysis (Controlled Experiment)
+- *Hypothesis 1 (Scale Mismatch)*: Initial pipeline decimated the full 24° TMC swath to 2048 px max dimension, while SELENE was cropped to 2048 px across only 3°, resulting in a 7.5x scale disparity.
+- *Controlled Test*: Extracted matched-scale un-decimated patches ($1024 \times 1024$ pixels, $11.2\text{ km} \times 11.2\text{ km}$ footprint, ~10 m/px) from identical central lunar coordinates. Tested normalized cross-correlation and multi-scale SIFT/ORB.
+- *Outcome*: Cross-correlation remained negligible ($r \approx 0.04$), producing zero valid tie points.
+- *Root Cause Conclusion*: The failure is **radiometric**:
+  - JAXA SELENE TCORT products are photometrically pre-normalized using a diffuse Hapke scattering model, eliminating macroscopic shadows to simulate overhead zenith sun.
+  - Chandrayaan-2 TMC-2 was observed under raw directional oblique sunlight ($39.0^\circ$ solar incidence, $69.8^\circ$ solar azimuth), casting deep shadows across crater rims and morphology.
+  - This radiometric domain gap inverts edge gradients and phase congruency, preventing standard keypoint matchers from bridging the representations.
+- Directly confirms the core illumination-invariance challenge highlighted in the SIH problem statement.
+

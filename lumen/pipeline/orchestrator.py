@@ -134,6 +134,8 @@ class RegistrationResult:
     reference_path: str
     checkerboard_image: Optional[np.ndarray] = None
     match_overlay_image: Optional[np.ndarray] = None
+    source_image: Optional[np.ndarray] = None
+    reference_image: Optional[np.ndarray] = None
 
     @property
     def registered_image(self) -> np.ndarray:
@@ -252,8 +254,32 @@ class RegistrationPipeline:
         try:
             # ── 1. INGEST ──────────────────────────────────────────────────
             self._notify_start(PipelineStage.INGEST, "Ingesting source and reference images")
-            source_img, source_meta = self._ingest(source_path)
-            ref_img, ref_meta = self._ingest(reference_path)
+            
+            # Peek metadata to calculate mutual overlap bounding box for windowed I/O
+            initial_bbox = None
+            if not skip_crop:
+                try:
+                    src_peek = self._inspect_metadata(source_path)
+                    ref_peek = self._inspect_metadata(reference_path)
+                    if src_peek.get("bbox_lonlat") and ref_peek.get("bbox_lonlat"):
+                        sb, rb = src_peek["bbox_lonlat"], ref_peek["bbox_lonlat"]
+                        inter = (max(sb[0], rb[0]), max(sb[1], rb[1]), min(sb[2], rb[2]), min(sb[3], rb[3]))
+                        if inter[0] < inter[2] and inter[1] < inter[3]:
+                            initial_bbox = inter
+                            logger.info(f"Computed initial overlap window for windowed I/O: {initial_bbox}")
+                except Exception as e:
+                    logger.debug(f"Metadata peek skipped: {e}")
+
+            try:
+                source_img, source_meta = self._ingest(source_path, bbox=initial_bbox)
+            except TypeError:
+                source_img, source_meta = self._ingest(source_path)
+
+            try:
+                ref_img, ref_meta = self._ingest(reference_path, bbox=initial_bbox)
+            except TypeError:
+                ref_img, ref_meta = self._ingest(reference_path)
+
             if debug_path:
                 _save_debug_preview(source_img, debug_path / f"{pair_name}_src_01_loaded.png")
                 _save_debug_preview(ref_img, debug_path / f"{pair_name}_ref_01_loaded.png")
@@ -306,6 +332,23 @@ class RegistrationPipeline:
                     f"→ {overlap_bbox} "
                     f"(src cropped to {source_ortho.shape}, ref to {ref_ortho.shape})"
                 )
+
+                # Harmonize overlap arrays to common analysis grid to ensure 1:1 ground scale correspondence
+                import cv2
+                cur_max = max(max(source_ortho.shape[:2]), max(ref_ortho.shape[:2]))
+                target_h = min(max_ortho_dim, cur_max)
+                mid_lat = (overlap_bbox[1] + overlap_bbox[3]) / 2.0
+                d_lon = abs(overlap_bbox[2] - overlap_bbox[0]) * np.cos(np.radians(mid_lat))
+                d_lat = abs(overlap_bbox[3] - overlap_bbox[1])
+                aspect = (d_lon / d_lat) if d_lat > 1e-6 else 1.0
+                target_w = max(1, int(round(target_h * aspect)))
+
+                if source_ortho.shape != (target_h, target_w):
+                    source_ortho = cv2.resize(source_ortho.astype(np.float32), (target_w, target_h), interpolation=cv2.INTER_AREA)
+                if ref_ortho.shape != (target_h, target_w):
+                    ref_ortho = cv2.resize(ref_ortho.astype(np.float32), (target_w, target_h), interpolation=cv2.INTER_AREA)
+                logger.info(f"Harmonized overlap crops to common analysis grid: ({target_h}, {target_w})")
+
                 if debug_path:
                     _save_debug_preview(source_ortho, debug_path / f"{pair_name}_src_03_crop_to_overlap.png")
                     _save_debug_preview(ref_ortho, debug_path / f"{pair_name}_ref_03_crop_to_overlap.png")
@@ -318,8 +361,15 @@ class RegistrationPipeline:
                 )
 
             # 2c. Radiometric / photometric normalisation on cropped arrays.
-            source_pre = self._normalize_image(source_ortho, source_meta)
-            ref_pre = self._normalize_image(ref_ortho, ref_meta)
+            photo_method = options.get("photometric_method", "auto")
+            if photo_method == "auto":
+                opticals = {"OHRC", "TMC2", "SELENE_TC", "LROC_NAC"}
+                if source_sensor.upper() in opticals and ref_sensor.upper() in opticals and source_sensor.upper() != ref_sensor.upper():
+                    photo_method = "lommel_seeliger"
+                    logger.info(f"Cross-mission optical pair ({source_sensor} -> {ref_sensor}) detected; selecting Lommel-Seeliger normalisation.")
+
+            source_pre = self._normalize_image(source_ortho, source_meta, photo_method=photo_method)
+            ref_pre = self._normalize_image(ref_ortho, ref_meta, photo_method=photo_method)
             if debug_path:
                 _save_debug_preview(source_pre, debug_path / f"{pair_name}_src_04_photometric_norm.png")
                 _save_debug_preview(ref_pre, debug_path / f"{pair_name}_ref_04_photometric_norm.png")
@@ -409,7 +459,9 @@ class RegistrationPipeline:
                 source_path=str(source_path),
                 reference_path=str(reference_path),
                 checkerboard_image=checkerboard,
-                match_overlay_image=overlay
+                match_overlay_image=overlay,
+                source_image=source_pre,
+                reference_image=ref_pre
             )
 
         except NoOverlapError:
@@ -423,14 +475,111 @@ class RegistrationPipeline:
     # Stage implementations
     # ------------------------------------------------------------------
 
-    def _ingest(self, path: Union[str, Path]) -> Tuple[np.ndarray, Dict[str, Any]]:
-        """Parse PDS4 XML (or SELENE PDS3 LBL) and load the raw binary array."""
-        logger.debug(f"Ingesting {path}")
+    def _inspect_metadata(self, path: Union[str, Path]) -> Dict[str, Any]:
+        """Inspect product header to extract footprint bbox and metadata without loading heavy image data."""
+        p = Path(path)
+        path_str = str(p).lower()
+        from lumen.ingest.selene_adapter import is_selene_product, parse_selene_pds3
+        if is_selene_product(p):
+            return parse_selene_pds3(p)
+        from lumen.ingest.lroc_adapter import is_lroc_product, parse_lroc_metadata
+        if is_lroc_product(p):
+            return parse_lroc_metadata(p)
+        if path_str.endswith(('.tif', '.tiff')):
+            try:
+                import rasterio
+                with rasterio.open(p) as src:
+                    b = src.bounds
+                    return {
+                        "is_orthorectified": True,
+                        "bbox_lonlat": (b.left, b.bottom, b.right, b.top),
+                        "pixel_resolution": src.res[0] * 30323.0 if src.crs and src.crs.is_geographic else src.res[0],
+                    }
+            except Exception:
+                pass
+        if path_str.endswith('.xml'):
+            try:
+                lbl = parse_pds4(p, validate_required=False)
+                meta = extract_metadata(lbl)
+                stem = p.name.lower()
+                for key, tif_name in [("tmc_ncn", "tmc_ncn_ortho.tif"), ("tmc_nca", "tmc_nca_ortho.tif"), ("ohrc", "ohrc_calibrated_ortho.tif"), ("iirs", "iirs_ortho.tif")]:
+                    if key in stem:
+                        tif_p = Path("data/processed/real_ortho_outputs") / tif_name
+                        if tif_p.exists():
+                            import rasterio
+                            with rasterio.open(tif_p) as src:
+                                b = src.bounds
+                                meta["is_orthorectified"] = True
+                                meta["bbox_lonlat"] = (b.left, b.bottom, b.right, b.top)
+                                meta["ortho_tif_path"] = str(tif_p)
+                return meta
+            except Exception:
+                pass
+        return {}
+
+    def _ingest(
+        self,
+        path: Union[str, Path],
+        bbox: Optional[Tuple[float, float, float, float]] = None,
+    ) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """Parse PDS4 XML (or SELENE PDS3 LBL, LROC, or GeoTIFF) and load array."""
+        logger.debug(f"Ingesting {path} (bbox={bbox})")
+        p = Path(path)
+        path_str = str(p).lower()
+
         from lumen.ingest.selene_adapter import is_selene_product, parse_selene_pds3, load_selene_image
-        if is_selene_product(path):
-            meta = parse_selene_pds3(path)
-            img, _ = load_selene_image(path)
+        if is_selene_product(p):
+            meta = parse_selene_pds3(p)
+            img, eff_bbox = load_selene_image(p, bbox_crop=bbox)
+            meta["bbox_lonlat"] = eff_bbox
+            meta["is_orthorectified"] = True
             return img, meta
+
+        from lumen.ingest.lroc_adapter import is_lroc_product, parse_lroc_metadata, load_lroc_image
+        if is_lroc_product(p):
+            meta = parse_lroc_metadata(p)
+            img, eff_bbox = load_lroc_image(p, bbox_crop=bbox)
+            meta["bbox_lonlat"] = eff_bbox
+            meta["is_orthorectified"] = True
+            return img, meta
+
+        if path_str.endswith(('.tif', '.tiff')):
+            import rasterio
+            from rasterio.windows import from_bounds
+            with rasterio.open(p) as src:
+                b = src.bounds
+                if bbox is not None:
+                    win = from_bounds(*bbox, transform=src.transform)
+                    img = src.read(1, window=win).astype(np.float32)
+                    eff_bbox = bbox
+                else:
+                    img = src.read(1).astype(np.float32)
+                    eff_bbox = (b.left, b.bottom, b.right, b.top)
+                res = src.res[0] * 30323.0 if src.crs and src.crs.is_geographic else src.res[0]
+                meta = {
+                    "is_orthorectified": True,
+                    "bbox_lonlat": eff_bbox,
+                    "pixel_resolution": res,
+                    "solar_elevation": 50.94,
+                    "sun_elevation": 50.94,
+                    "solar_azimuth": 69.56,
+                    "phase_angle": 39.06,
+                }
+            return img, meta
+
+        # Check for pre-orthorectified GeoTIFF companion
+        if path_str.endswith('.xml') and bbox is not None:
+            stem = p.name.lower()
+            for key, tif_name in [("tmc_ncn", "tmc_ncn_ortho.tif"), ("tmc_nca", "tmc_nca_ortho.tif"), ("ohrc", "ohrc_calibrated_ortho.tif"), ("iirs", "iirs_ortho.tif")]:
+                if key in stem:
+                    tif_p = Path("data/processed/real_ortho_outputs") / tif_name
+                    if tif_p.exists():
+                        logger.info(f"Using pre-computed orthorectified GeoTIFF {tif_name} with windowed read over {bbox}")
+                        img, meta = self._ingest(tif_p, bbox=bbox)
+                        raw_label = parse_pds4(p, validate_required=False)
+                        raw_meta = extract_metadata(raw_label)
+                        meta.update({k: v for k, v in raw_meta.items() if k not in ("bbox_lonlat", "is_orthorectified")})
+                        return img, meta
 
         label = parse_pds4(path)
         img = load_binary_image(path)
@@ -530,13 +679,14 @@ class RegistrationPipeline:
         self,
         image: np.ndarray,
         metadata: Dict[str, Any],
+        photo_method: str = "auto",
     ) -> np.ndarray:
         """Apply radiometric normalisation and photometric correction.
 
         Called AFTER overlap cropping so normalisation is only computed on
         the shared region that will actually be fed to the feature matcher.
         """
-        logger.debug(f"Normalizing image {image.shape}")
+        logger.debug(f"Normalizing image {image.shape} with photometric method: {photo_method}")
 
         img_float = normalize_to_float(image)
 
@@ -548,8 +698,13 @@ class RegistrationPipeline:
         emi   = np.full(img_float.shape, 90.0 - view_el)
         phase = np.full(img_float.shape, phase_ang)
 
-        img_photo, _, _ = photometric_normalize(img_float, inc, emi, phase)
-        return apply_clahe(img_photo)
+        img_photo, _, _ = photometric_normalize(img_float, inc, emi, phase, method=photo_method)
+        clahe_out = apply_clahe(img_photo)
+        if clahe_out.dtype == np.uint16:
+            clahe_out = (clahe_out / 65535.0).astype(np.float32)
+        elif clahe_out.dtype == np.uint8:
+            clahe_out = (clahe_out / 255.0).astype(np.float32)
+        return clahe_out
 
     # Preserved unchanged from previous version:
 
@@ -560,16 +715,54 @@ class RegistrationPipeline:
         if method == "auto":
             opticals = {"OHRC", "TMC2", "SELENE_TC", "LROC_NAC"}
             if sensor0.upper() in opticals and sensor1.upper() in opticals:
-                method = "deep"
+                if sensor0.upper() == sensor1.upper():
+                    method = "deep"
+                else:
+                    # For cross-mission optical pairs, SIFT provides multi-scale octave invariance
+                    method = "sift"
             else:
                 method = "rift2"
+
+        if method == "sift":
+            import cv2
+            sift = cv2.SIFT_create(nfeatures=4000)
+            img0_u8 = (np.clip(image0, 0.0, 1.0) * 255.0).astype(np.uint8) if image0.max() <= 1.0 else image0.astype(np.uint8)
+            img1_u8 = (np.clip(image1, 0.0, 1.0) * 255.0).astype(np.uint8) if image1.max() <= 1.0 else image1.astype(np.uint8)
+            kp0, des0 = sift.detectAndCompute(img0_u8, None)
+            kp1, des1 = sift.detectAndCompute(img1_u8, None)
+            if des0 is not None and des1 is not None and len(kp0) >= 4 and len(kp1) >= 4:
+                bf = cv2.BFMatcher(cv2.NORM_L2)
+                raw_matches = bf.knnMatch(des0, des1, k=2)
+                good = []
+                for pair in raw_matches:
+                    if len(pair) == 2:
+                        m, n = pair
+                        if m.distance < 0.80 * n.distance:
+                            good.append(m)
+                if good:
+                    mkpts0 = np.float32([kp0[m.queryIdx].pt for m in good])
+                    mkpts1 = np.float32([kp1[m.trainIdx].pt for m in good])
+                    return {
+                        'keypoints0': mkpts0,
+                        'keypoints1': mkpts1,
+                        'scores': np.array([m.distance for m in good], dtype=np.float32),
+                        'num_matches': len(mkpts0)
+                    }
+            return {'keypoints0': np.empty((0, 2), dtype=np.float32), 'keypoints1': np.empty((0, 2), dtype=np.float32), 'num_matches': 0}
 
         if method == "deep":
             matcher = DeepMatcher()
             matches = matcher.match(image0, image1)
-            # If deep matcher found very few points on cross-sensor imagery, attempt RIFT2 fallback
+            # If deep matcher found very few points on cross-sensor imagery, attempt SIFT fallback
             if len(matches.get('keypoints0', [])) < 8 and sensor0 != sensor1:
-                logger.info("Deep matcher found <8 correspondences on cross-sensor pair; attempting RIFT2 fallback.")
+                logger.info("Deep matcher found <8 correspondences on cross-sensor pair; attempting SIFT fallback.")
+                try:
+                    sift_matches = self._extract_features(image0, image1, "sift", sensor0, sensor1)
+                    if len(sift_matches.get('keypoints0', [])) > len(matches.get('keypoints0', [])):
+                        return sift_matches
+                except Exception as e:
+                    logger.warning(f"SIFT fallback failed: {e}")
+                logger.info("Attempting RIFT2 fallback.")
                 try:
                     rift_matches = match_rift2(image0, image1)
                     if len(rift_matches.get('keypoints0', [])) > len(matches.get('keypoints0', [])):

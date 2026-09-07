@@ -5,6 +5,7 @@ import MappingGeometryPage from './pages/MappingGeometryPage';
 import PipelinePage from './pages/PipelinePage';
 import EvaluationPage from './pages/EvaluationPage';
 import DatasetsPage from './pages/DatasetsPage';
+import RegistrationView from './pages/RegistrationView';
 
 const DEFAULT_DATA = {
   mission: {
@@ -223,6 +224,9 @@ export default function App() {
               rawInventory={data.raw_inventory || []}
               onSelectProductForGeometry={handleSelectProductForGeometry}
             />
+          )}
+          {activePage === 5 && (
+            <RegistrationView />
           )}
         </main>
       </div>

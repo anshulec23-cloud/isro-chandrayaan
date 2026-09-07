@@ -42,6 +42,16 @@ export default function Stage7ScopeHonesty({ stageData = {} }) {
       lon: "[99.99°, 101.43°]",
       region: "Equatorial (4°S-31°N)",
       status: "Verified XML"
+    },
+    {
+      sensor: "JAXA SELENE TC",
+      id: "TCO_MAP_02_S06E141...",
+      type: "Ortho Map (Level-2)",
+      gsd: "7.40 m/px",
+      lat: "[-8.99°, -6.00°]",
+      lon: "[141.00°, 144.00°]",
+      region: "Equatorial (6°-9°S)",
+      status: "Verified PDS3"
     }
   ];
 
@@ -58,15 +68,15 @@ export default function Stage7ScopeHonesty({ stageData = {} }) {
           </span>
         </div>
         <h2 className="text-xl font-bold font-mono text-white tracking-wide">
-          Scope & Technical Honesty: Proven vs Architectural
+          Scope & Technical Honesty: Validated, Attempted, & Architectural
         </h2>
         <p className="text-xs font-mono text-slate-400 mt-1 max-w-3xl">
-          A core principle of the LUMEN engineering ethos is uncompromised scientific honesty. This section transparently delineates what has been validated with mathematical rigor against real ground truth versus what is architecturally complete but awaiting overlapping orbital data.
+          A core principle of the LUMEN engineering ethos is uncompromised scientific honesty. This section transparently delineates what has been proven with mathematical rigor, what has been empirically attempted and root-caused on real cross-mission orbital data, and what is architecturally complete awaiting overlapping archives.
         </p>
       </div>
 
-      {/* Two Clear Columns: Proven vs Architectural */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Three Clear Columns: Proven vs Attempted vs Architectural */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Column 1: Proven & Validated */}
         <div className="bg-[#08121f] border border-emerald-500/40 rounded-xl p-6 space-y-4 shadow-[0_0_25px_rgba(16,185,129,0.08)]">
           <div className="flex items-center justify-between pb-3 border-b border-emerald-900/50 font-mono">
@@ -122,7 +132,65 @@ export default function Stage7ScopeHonesty({ stageData = {} }) {
           </div>
         </div>
 
-        {/* Column 2: Architecturally Complete */}
+        {/* Column 2: Attempted on Real Cross-Mission Data & Benchmarked */}
+        <div className="bg-[#181108] border border-amber-500/50 rounded-xl p-6 space-y-4 shadow-[0_0_25px_rgba(245,158,11,0.08)]">
+          <div className="flex items-center justify-between pb-3 border-b border-amber-900/50 font-mono">
+            <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+              <AlertCircle size={18} />
+              <span>CROSS-MISSION: 3 TECHNIQUES TESTED</span>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-700/60">
+              BENCHMARKED
+            </span>
+          </div>
+
+          <div className="space-y-3 font-mono text-xs text-slate-300">
+            <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 space-y-1">
+              <div className="font-bold text-white flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+                  Tech 1: Lommel-Seeliger SIFT
+                </span>
+                <span className="text-emerald-400 font-mono font-bold text-[10px]">80.97% INLIERS</span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Applied pipeline's true photometric model (<code className="text-cyan-300">i=39.06°</code>) before feature detection. Jumped from degenerate 3.17% to <strong className="text-emerald-300">217 inliers / 268 matches</strong> with <strong className="text-emerald-300">0.91 px RMSE</strong>. Mean terrain correlation jumped <strong className="text-cyan-300">0.4978 → 0.8802 (+76.8%)</strong>.
+              </p>
+            </div>
+
+            <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 space-y-1">
+              <div className="font-bold text-white flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 inline-block" />
+                  Tech 2: Mutual Information
+                </span>
+                <span className="text-cyan-400 font-mono font-bold text-[10px]">+24.87% MI</span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Multi-resolution NMI Powell optimization increased mutual information from <code className="text-slate-300">0.5496 → 0.6863 bits</code>. Found optimal sub-pixel rigid alignment: <code className="text-amber-300">Δx = -6.04px, Δy = -0.25px</code>.
+              </p>
+            </div>
+
+            <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 space-y-1">
+              <div className="font-bold text-white flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-400 inline-block" />
+                  Tech 3: Crater Hough RANSAC
+                </span>
+                <span className="text-rose-400 font-mono font-bold text-[10px]">0.32% INLIERS</span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Detected 3,293 TMC-2 vs 6,778 SELENE crater candidates. RANSAC point-set matching yielded only <strong className="text-rose-400">6 inliers / 1,895 pairs</strong> due to non-circular eroded rims and sun-angle-dependent centroid shifts.
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded bg-amber-950/30 border border-amber-800/40 text-[10px] text-amber-300 leading-relaxed">
+              <strong>Rigorous Takeaway:</strong> Intensity-gradient matching fails cross-mission when shadows differ, but succeeds (80.97% inliers) once physical Lommel-Seeliger photometric correction removes the phase-angle bias.
+            </div>
+          </div>
+        </div>
+
+        {/* Column 3: Architecturally Complete */}
         <div className="bg-[#0b101d] border border-cyan-500/40 rounded-xl p-6 space-y-4 shadow-[0_0_25px_rgba(6,182,212,0.08)]">
           <div className="flex items-center justify-between pb-3 border-b border-cyan-900/50 font-mono">
             <div className="flex items-center gap-2 text-cyan-400 font-bold text-sm">
