@@ -17,11 +17,13 @@ def apply_clahe(image: np.ndarray, clip_limit: float = 2.0, grid_size: tuple[int
     """
     clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=grid_size)
     if image.dtype != np.uint8 and image.dtype != np.uint16:
-        # Normalize to 16-bit for CLAHE if needed, or 8-bit
         img_min = image.min()
         img_max = image.max()
         if img_max > img_min:
             image = ((image - img_min) / (img_max - img_min) * 65535).astype(np.uint16)
+        else:
+            # Fallback for completely flat/shadowed images to prevent OpenCV crash
+            image = np.zeros_like(image, dtype=np.uint16)
     return clahe.apply(image)
 
 def histogram_match(source: np.ndarray, reference: np.ndarray) -> np.ndarray:

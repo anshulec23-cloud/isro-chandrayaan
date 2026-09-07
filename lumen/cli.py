@@ -27,11 +27,38 @@ def setup_logging(verbose: bool):
 def cmd_register(args):
     settings = get_settings()
     console = Console() if has_rich else None
+
+    src_path = args.source or args.source_flag
+    ref_path = args.reference or args.reference_flag
+    if not src_path or not ref_path:
+        msg = "Error: Both source and reference image paths must be provided."
+        if console:
+            console.print(f"[bold red]{msg}[/bold red]")
+        else:
+            print(msg)
+        sys.exit(1)
+
+    def infer_sensor(p_str: str, default: str) -> str:
+        s = str(p_str).lower()
+        if "tmc" in s:
+            return "TMC2"
+        if "ohr" in s:
+            return "OHRC"
+        if "iir" in s:
+            return "IIRS"
+        if "selene" in s or "tco_map" in s or s.endswith(".lbl"):
+            return "SELENE_TC"
+        if "lroc" in s or "nac" in s or "m1418" in s:
+            return "LROC_NAC"
+        return default
+
+    src_sensor = args.source_sensor or infer_sensor(src_path, "TMC2")
+    ref_sensor = args.ref_sensor or infer_sensor(ref_path, "TMC2")
     
     if console:
-        console.print(f"[bold blue]LUMEN Registration[/bold blue]: {args.source} -> {args.reference}")
+        console.print(f"[bold blue]LUMEN Registration[/bold blue]: {src_path} ({src_sensor}) -> {ref_path} ({ref_sensor})")
     else:
-        print(f"LUMEN Registration: {args.source} -> {args.reference}")
+        print(f"LUMEN Registration: {src_path} ({src_sensor}) -> {ref_path} ({ref_sensor})")
         
     class CLICallback:
         def __init__(self, progress):
@@ -58,6 +85,7 @@ def cmd_register(args):
 
     options = {
         "feature_method": args.method,
+        "photometric_method": getattr(args, "photometric_method", "auto"),
     }
     
     if has_rich:
@@ -72,10 +100,10 @@ def cmd_register(args):
             pipeline = RegistrationPipeline(config=settings, callback=callback)
             try:
                 result = pipeline.run(
-                    source_path=args.source,
-                    reference_path=args.reference,
-                    source_sensor=args.source_sensor,
-                    ref_sensor=args.ref_sensor,
+                    source_path=src_path,
+                    reference_path=ref_path,
+                    source_sensor=src_sensor,
+                    ref_sensor=ref_sensor,
                     options=options
                 )
                 console.print(f"[bold green]Success![/bold green] RMSE: {result.metrics.get('rmse', 'N/A')}")
@@ -87,10 +115,10 @@ def cmd_register(args):
         pipeline = RegistrationPipeline(config=settings, callback=callback)
         try:
             result = pipeline.run(
-                source_path=args.source,
-                reference_path=args.reference,
-                source_sensor=args.source_sensor,
-                ref_sensor=args.ref_sensor,
+                source_path=src_path,
+                reference_path=ref_path,
+                source_sensor=src_sensor,
+                ref_sensor=ref_sensor,
                 options=options
             )
             print(f"Success! RMSE: {result.metrics.get('rmse', 'N/A')}")
@@ -107,8 +135,8 @@ def cmd_serve(args):
 
 def cmd_info(args):
     print("LUMEN - Lunar Multi-Sensor Registration")
-    print("Supported Sensors: OHRC, TMC2, IIRS")
-    print("Available Matchers: SuperPoint+LightGlue, RIFT2")
+    print("Supported Sensors: OHRC, TMC2, IIRS, SELENE_TC, LROC_NAC")
+    print("Available Matchers: SuperPoint+LightGlue, RIFT2, SIFT")
 
 
 def cmd_evaluate(args):
@@ -126,11 +154,14 @@ def main():
     
     # Register command
     register_parser = subparsers.add_parser("register", help="Run image registration")
-    register_parser.add_argument("source", help="Path to source image (to be warped)")
-    register_parser.add_argument("reference", help="Path to reference image")
-    register_parser.add_argument("--source-sensor", required=True, choices=["OHRC", "TMC2", "IIRS"])
-    register_parser.add_argument("--ref-sensor", required=True, choices=["OHRC", "TMC2", "IIRS"])
-    register_parser.add_argument("--method", default="auto", choices=["auto", "deep", "rift2"])
+    register_parser.add_argument("source", nargs="?", default=None, help="Path to source image (to be warped)")
+    register_parser.add_argument("reference", nargs="?", default=None, help="Path to reference image")
+    register_parser.add_argument("--source", dest="source_flag", default=None, help="Path to source image")
+    register_parser.add_argument("--reference", dest="reference_flag", default=None, help="Path to reference image")
+    register_parser.add_argument("--source-sensor", choices=["OHRC", "TMC2", "IIRS", "SELENE_TC", "LROC_NAC"], default=None, help="Source sensor")
+    register_parser.add_argument("--ref-sensor", choices=["OHRC", "TMC2", "IIRS", "SELENE_TC", "LROC_NAC"], default=None, help="Reference sensor")
+    register_parser.add_argument("--method", default="auto", choices=["auto", "deep", "rift2", "sift"])
+    register_parser.add_argument("--photometric-method", default="auto", choices=["auto", "lommel_seeliger", "minnaert", "none"])
     register_parser.set_defaults(func=cmd_register)
     
     # Serve command

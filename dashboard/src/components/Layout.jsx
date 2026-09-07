@@ -12,7 +12,7 @@ export function Layout() {
           <div className="font-display-lg text-[32px] text-primary tracking-tighter mb-12">LUMEN</div>
           
           <nav className="flex flex-col gap-2">
-            <NavItem to="/" label="01. Mapping/Geometry" />
+            <NavItem to="/mapping" label="01. Mapping/Geometry" />
             <NavItem to="/pipeline" label="02. Pipeline" />
             <NavItem to="/evaluation" label="03. Evaluation" />
             <NavItem to="/datasets" label="04. Datasets" />

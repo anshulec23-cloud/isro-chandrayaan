@@ -4,98 +4,120 @@
 @tailwind utilities;
 
 @layer base {
-  body { 
-    background-color: theme('colors.background'); 
-    color: theme('colors.on-background'); 
-    overflow-x: hidden; 
+  :root {
+    --bg-terminal: #0a0a0a;
+    --amber-accent: #e8a33d;
+    --amber-dim: rgba(232, 163, 61, 0.2);
+    --border-terminal: #262626;
+  }
+
+  body {
+    background-color: #0a0a0a;
+    color: #e5e5e5;
+    font-family: 'JetBrains Mono', 'Space Mono', monospace;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Custom scrollbar for retro terminal feel */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0a0a0a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #262626;
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #e8a33d;
   }
 }
 
 @layer components {
-  .glass-hud { 
-    background: rgba(13, 14, 18, 0.7); 
-    backdrop-filter: blur(20px); 
-    -webkit-backdrop-filter: blur(20px); 
+  /* Dotted & dashed data readout rows */
+  .telemetry-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px dashed #262626;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
   }
-  
-  .tech-panel { 
-    border: 1px solid theme('colors.outline-variant'); 
-    background-color: theme('colors.surface-container-lowest'); 
-    position: relative; 
+
+  .telemetry-label {
+    color: #888888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
   }
-  
-  .tech-panel-active { 
-    border: 1px solid theme('colors.primary'); 
-    box-shadow: inset 0 0 10px rgba(255, 193, 116, 0.1); 
+
+  .telemetry-value {
+    color: #e8a33d;
+    font-weight: 700;
+    text-align: right;
   }
-  
-  .module-id { 
-    position: absolute; 
-    top: 4px; 
-    right: 8px; 
-    font-family: 'JetBrains Mono', monospace; 
-    font-size: 10px; 
-    color: theme('colors.on-surface-variant'); 
-    opacity: 0.5; 
+
+  /* Retro CRT terminal module spec tag */
+  .mod-tag {
+    font-size: 10px;
+    color: #666666;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+    display: block;
   }
-  
-  .crosshair { 
-    position: absolute; 
-    width: 20px; 
-    height: 20px; 
-    pointer-events: none; 
+
+  .section-title {
+    color: #e8a33d;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
-  
-  .crosshair::before, .crosshair::after { 
-    content: ''; 
-    position: absolute; 
-    background-color: theme('colors.primary'); 
+
+  /* Sidebar navigation item */
+  .nav-item {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: #777777;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    padding: 8px 0;
+    display: block;
+    width: 100%;
   }
-  
-  .crosshair::before { 
-    width: 100%; 
-    height: 1px; 
-    top: 50%; 
-    left: 0; 
-    transform: translateY(-50%); 
+
+  .nav-item:hover {
+    color: #cccccc;
   }
-  
-  .crosshair::after { 
-    width: 1px; 
-    height: 100%; 
-    left: 50%; 
-    top: 0; 
-    transform: translateX(-50%); 
+
+  .nav-item-active {
+    color: #e8a33d !important;
+    font-weight: 700;
+    border-bottom: 1px dashed #e8a33d;
   }
-  
-  .tech-divider { 
-    border-bottom: 1px dashed theme('colors.outline-variant'); 
-  }
-  
-  .btn-amber { 
-    border: 1px solid theme('colors.primary'); 
-    background: transparent; 
-    color: theme('colors.primary'); 
-    transition: all 0.2s ease; 
-  }
-  
-  .btn-amber:hover { 
-    background: theme('colors.primary'); 
-    color: theme('colors.on-primary'); 
-  }
-  
-  .telemetry-chip { 
-    background: rgba(255,255,255,0.1); 
-    display: inline-flex; 
-    align-items: center; 
-    gap: 4px; 
-  }
-  
-  .grid-bg { 
+
+  /* Subtle retro grid pattern */
+  .crt-grid {
     background-image: 
-      linear-gradient(theme('colors.surface-variant') 1px, transparent 1px), 
-      linear-gradient(90deg, theme('colors.surface-variant') 1px, transparent 1px); 
-    background-size: 20px 20px; 
-    background-position: center; 
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .border-terminal {
+    border: 1px solid #262626;
   }
 }

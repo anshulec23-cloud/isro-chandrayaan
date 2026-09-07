@@ -24,7 +24,9 @@ dependencies = [
     "tqdm>=4.65",
     "pyyaml>=6.0",
     "httpx>=0.25",
-    "kornia>=0.7"
+    "kornia>=0.7",
+    "lightglue>=0.0.4",
+    "gdal>=3.6.0"
 ]
 
 [project.optional-dependencies]
@@ -42,3 +44,6 @@ lumen = "lumen.cli:main"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
