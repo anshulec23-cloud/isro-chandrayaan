@@ -1,15 +1,13 @@
+import asyncio
 import logging
+import re
 import uuid
-import random
-import time
-import os
-import json
 from contextlib import asynccontextmanager
-from typing import Dict, Any, List
+from pathlib import Path
+from typing import Dict, Any
 from concurrent.futures import ThreadPoolExecutor
 
-from fastapi import FastAPI, UploadFile, File, Form, WebSocket, HTTPException, BackgroundTasks, Depends
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, UploadFile, File, WebSocket, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -19,6 +17,37 @@ from lumen.pipeline.orchestrator import RegistrationPipeline, PipelineStage
 from lumen.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# All filesystem locations are anchored to the repository root so the server
+# behaves the same whatever directory it is started from.  (Outputs used to be
+# written to a cwd-relative "dashboard/outputs" while being *served* from the
+# repo-relative one, so results 404'd unless started from the repo root.)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+OUTPUTS_DIR = REPO_ROOT / "dashboard" / "outputs"
+PREVIEWS_DIR = REPO_ROOT / "dashboard" / "public" / "previews"
+DIST_DIR = REPO_ROOT / "dashboard" / "dist"
+UPLOAD_DIR = get_settings().DATA_DIR / "uploads"
+
+UPLOAD_MAX_BYTES = 500 * 1024 * 1024  # docs/CONSTRAINTS.md: 500 MB upload limit
+UPLOAD_SUFFIXES = {".xml", ".img", ".qub", ".csv", ".tif", ".tiff", ".lbl"}
+
+
+def resolve_data_path(user_path: str) -> Path:
+    """Resolve a client-supplied path and refuse anything outside DATA_DIR.
+
+    Registration requests name files on the *server*; without this check a
+    client could point the pipeline at any file the server process can read.
+    """
+    data_dir = get_settings().DATA_DIR.resolve()
+    candidate = Path(user_path)
+    if not candidate.is_absolute():
+        candidate = REPO_ROOT / candidate
+    candidate = candidate.resolve()
+    if not candidate.is_relative_to(data_dir):
+        raise HTTPException(status_code=400, detail=f"Path must be inside the data directory: {user_path}")
+    if not candidate.is_file():
+        raise HTTPException(status_code=404, detail=f"File not found: {user_path}")
+    return candidate
 
 __all__ = ["app"]
 
@@ -46,10 +75,11 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+# The dashboard is served from this same origin in production; the Vite dev
+# server (5173) is the only other origin that needs access.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -77,26 +107,24 @@ class WebhookCallback:
             jobs[self.job_id]["message"] = message
 
 
-def run_registration_task(job_id: str, req: RegistrationRequest):
+def run_registration_task(job_id: str, req: RegistrationRequest, source_path: Path, reference_path: Path):
     """Background task to run registration."""
     try:
         jobs[job_id]["status"] = "processing"
         settings = get_settings()
         pipeline = RegistrationPipeline(config=settings, callback=WebhookCallback(job_id))
         
-        # Use actual paths
-        from pathlib import Path
         result = pipeline.run(
-            source_path=Path(req.source_path),
-            reference_path=Path(req.reference_path),
-            source_sensor=req.source_sensor,
-            ref_sensor=req.reference_sensor,
+            source_path=source_path,
+            reference_path=reference_path,
+            source_sensor=req.source_sensor.value,
+            ref_sensor=req.reference_sensor.value,
             dem_path=None,
             options=req.options.model_dump() if req.options else None
         )
         
         # Save registered product as georeferenced GeoTIFF carrying reference CRS and transform
-        output_dir = Path("dashboard/outputs")
+        output_dir = OUTPUTS_DIR
         output_dir.mkdir(parents=True, exist_ok=True)
         out_tif_filename = f"{job_id}.tif"
         out_tif_path = output_dir / out_tif_filename
@@ -110,17 +138,17 @@ def run_registration_task(job_id: str, req: RegistrationRequest):
 
         prod = create_registered_product(
             source=result.warped_image,
-            reference=Path(req.reference_path),
+            reference=reference_path,
             transform=result.transform_matrix,
             output_path=out_tif_path,
-            source_sensor=req.source_sensor,
-            ref_sensor=req.reference_sensor,
+            source_sensor=req.source_sensor.value,
+            ref_sensor=req.reference_sensor.value,
             transform_type="homography",
             rmse=rmse_val,
             metadata={
                 "job_id": job_id,
-                "source_path": str(req.source_path),
-                "reference_path": str(req.reference_path),
+                "source_path": str(source_path),
+                "reference_path": str(reference_path),
             }
         )
 
@@ -160,6 +188,7 @@ def run_registration_task(job_id: str, req: RegistrationRequest):
         ref_url = save_jpg(ref_img, f"{job_id}_ref.jpg")
         chk_url = save_jpg(result.checkerboard_image, f"{job_id}_checkerboard.jpg")
 
+        jobs[job_id]["progress"] = 100.0
         jobs[job_id]["status"] = "completed"
         jobs[job_id]["result_metrics"] = result.metrics
         jobs[job_id]["geotiff_path"] = str(out_tif_path)
@@ -174,11 +203,14 @@ def run_registration_task(job_id: str, req: RegistrationRequest):
         logger.error(f"Job {job_id} failed: {e}")
         jobs[job_id]["status"] = "failed"
         jobs[job_id]["error"] = str(e)
+        jobs[job_id]["message"] = f"FAILED: {e}"
 
 
 @app.post("/api/v1/register", response_model=RegistrationResponse)
 async def create_registration_job(request: RegistrationRequest, background_tasks: BackgroundTasks):
     """Create a new registration job."""
+    source_path = resolve_data_path(request.source_path)
+    reference_path = resolve_data_path(request.reference_path)
     job_id = str(uuid.uuid4())
     jobs[job_id] = {
         "status": "pending",
@@ -188,7 +220,7 @@ async def create_registration_job(request: RegistrationRequest, background_tasks
     }
     
     # Run in thread pool to not block async loop if it's CPU bound
-    background_tasks.add_task(run_registration_task, job_id, request)
+    background_tasks.add_task(run_registration_task, job_id, request, source_path, reference_path)
     
     return RegistrationResponse(
         job_id=job_id,
@@ -215,7 +247,8 @@ async def get_job_status(job_id: str):
         checkerboard_image_url=job.get("checkerboard_image_url"),
         geotiff_url=job.get("geotiff_url"),
         match_points=job.get("match_points"),
-        metadata=job.get("metadata")
+        metadata=job.get("metadata"),
+        error=job.get("error"),
     )
 
 
@@ -235,11 +268,11 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
                 "status": job["status"],
                 "progress": job.get("progress", 0.0),
                 "stage": job.get("stage", ""),
-                "message": job.get("message", "")
+                "message": job.get("message", ""),
+                "error": job.get("error"),
             })
             if job["status"] in ("completed", "failed"):
                 break
-            import asyncio
             await asyncio.sleep(1)
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
@@ -249,15 +282,40 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
 
 @app.post("/api/v1/upload")
 async def upload_file(file: UploadFile = File(...)):
-    """Upload endpoint for PDS4 files."""
-    # In production, save to persistent storage safely
-    return {"filename": file.filename, "size": file.size}
+    """Store an uploaded PDS4 label / data file under DATA_DIR/uploads."""
+    name = Path(file.filename or "").name  # drop any client-side directories
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", name) or Path(name).suffix.lower() not in UPLOAD_SUFFIXES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file name or type; allowed: {sorted(UPLOAD_SUFFIXES)}",
+        )
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    dest = UPLOAD_DIR / name
+    size = 0
+    try:
+        with dest.open("wb") as out:
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > UPLOAD_MAX_BYTES:
+                    raise HTTPException(status_code=413, detail="File exceeds 500 MB upload limit")
+                out.write(chunk)
+    except HTTPException:
+        dest.unlink(missing_ok=True)
+        raise
+    shown = dest.relative_to(REPO_ROOT) if dest.is_relative_to(REPO_ROOT) else dest
+    return {"filename": name, "size": size, "path": shown.as_posix()}
 
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint including GPU status mock."""
-    return {"status": "healthy", "gpu": "available"}
+    """Report service health and whether a CUDA GPU is actually available."""
+    try:
+        import torch
+
+        gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else None
+    except Exception:
+        gpu = None
+    return {"status": "healthy", "gpu": gpu or "none (CPU)", "cuda": gpu is not None}
 
 @app.get("/api/v1/demo-data")
 async def get_demo_data():
@@ -560,12 +618,12 @@ async def get_demo_data():
             "stage6": {
                 "name": "Final Registration & Evaluation",
                 "status": "VALIDATED",
-                "desc": "Sub-pixel projective homography alignment with independent SIFT checkpoint cross-validation.",
-                "independent_rmse_px": 1.932,
-                "independent_rmse_m": 10.59,
-                "matcher_rmse_px": 1.447,
-                "matcher_rmse_m": 7.93,
-                "explanation": "Matcher RMSE (1.447 px) measures internal residual error on points used to fit the transformation (evaluates to ~1.447-1.459 px across RANSAC iterations). Independent RMSE (1.932 px = 10.59 m) tests that transformation on 20 completely fresh SIFT tie points never seen during fitting, confirming genuine sub-pixel accuracy without matcher bias.",
+                "desc": "Projective homography alignment; accuracy is 5-fold held-out RMSE from scripts/benchmark.py.",
+                "independent_rmse_px": 1.96,
+                "independent_rmse_m": 10.2,
+                "matcher_rmse_px": 1.85,
+                "matcher_rmse_m": 9.6,
+                "explanation": "Fit residual (1.85 px) is measured on the tie points used to fit the homography. Held-out RMSE (1.96 px, ~10 m at 5.2 m/px) is measured on tie points the fit never saw (5-fold cross-validation, native-resolution window). Source: docs/results/benchmark.json.",
                 "checkerboard_url": "/previews/TMC_to_TMC_checkerboard.jpg",
                 "checkerboard_detail_url": "/previews/stage6_checkerboard_crater_detail.png",
                 "registered_url": "/previews/TMC_to_TMC_registered.png"
@@ -577,7 +635,7 @@ async def get_demo_data():
                 "proven": [
                     {
                         "title": "TMC-to-TMC Stereo Alignment",
-                        "detail": "End-to-end validated on 92.34% overlapping calibrated products with 1.932 px independent RMSE (~10.59 m ground error)."
+                        "detail": "End-to-end on the overlapping calibrated aft/nadir products: 1.96 px held-out RMSE (~10 m) on a native 5.2 m/px window."
                     },
                     {
                         "title": "16GB RAM Memory Management",
@@ -597,7 +655,7 @@ async def get_demo_data():
                         "techniques": [
                             {
                                 "name": "Technique 1: Lommel-Seeliger Normalization + SIFT/ORB",
-                                "result": "134 SIFT inliers / 174 candidates (77.01% inlier ratio), 0.84 px residual RMSE, SSIM 0.3756 (SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors). Patch correlation jumped from 0.4978 to 0.8802.",
+                                "result": "149 SIFT inliers / 174 candidates (85.6% inlier ratio), 0.81 px held-out RMSE at 44 m/px (~36 m), SSIM 0.381 (SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors). Patch correlation jumped from 0.4978 to 0.8802.",
                                 "status": "SUCCESSFUL CONVERGENCE"
                             },
                             {
@@ -647,9 +705,9 @@ async def get_demo_data():
                 "technique1": {
                     "method": "Lommel-Seeliger Normalization + SIFT/ORB",
                     "sift_candidates": 174,
-                    "sift_inliers": 134,
-                    "sift_inlier_ratio": 0.7701,
-                    "residual_rmse_px": 0.84,
+                    "sift_inliers": 149,
+                    "sift_inlier_ratio": 0.8563,
+                    "residual_rmse_px": 0.81,
                     "patch_corr_before": 0.4978,
                     "patch_corr_after": 0.8802,
                     "orb_candidates": 962,
@@ -691,21 +749,17 @@ async def get_demo_data():
         }
     }
 
-# Mount the previews directory directly
-previews_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "dashboard", "public", "previews")
-if os.path.exists(previews_path):
-    app.mount("/previews", StaticFiles(directory=previews_path), name="previews")
+if PREVIEWS_DIR.exists():
+    app.mount("/previews", StaticFiles(directory=PREVIEWS_DIR), name="previews")
 
-# Mount dashboard outputs directory for live registration results & GeoTIFFs
-outputs_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "dashboard", "outputs")
-os.makedirs(outputs_path, exist_ok=True)
-app.mount("/dashboard/outputs", StaticFiles(directory=outputs_path), name="outputs")
+# Live registration results & GeoTIFFs
+OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/dashboard/outputs", StaticFiles(directory=OUTPUTS_DIR), name="outputs")
 
-# Mount the static dashboard
-dashboard_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "dashboard", "dist")
-if os.path.exists(dashboard_path):
-    app.mount("/", StaticFiles(directory=dashboard_path, html=True), name="dashboard")
+# Built dashboard (npm run build)
+if DIST_DIR.exists():
+    app.mount("/", StaticFiles(directory=DIST_DIR, html=True), name="dashboard")
 
 
 if __name__ == "__main__":
-    uvicorn.run("lumen.api.server:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("lumen.api.server:app", host="127.0.0.1", port=8000)

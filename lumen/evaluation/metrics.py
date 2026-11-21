@@ -70,6 +70,32 @@ def create_checkerboard(image0: np.ndarray, image1: np.ndarray, grid_size: tuple
     result = np.where(checker, image0, image1)
     return result
 
+def create_false_color_overlay(warped: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    """Red = warped source, green = reference (BGR uint8 for cv2.imwrite).
+
+    Where the two images agree the result is yellow/grey; misregistration
+    shows up as red/green fringes along edges.  Each channel is stretched to
+    its own 1-99 percentile range so differing sensor radiometry does not
+    tint the whole image.
+    """
+    if warped.shape != reference.shape:
+        raise ValueError(f"shape mismatch: {warped.shape} vs {reference.shape}")
+
+    def stretch(img: np.ndarray) -> np.ndarray:
+        img = img.astype(np.float32)
+        valid = img[img != 0]
+        if valid.size == 0:
+            return np.zeros(img.shape, np.uint8)
+        lo, hi = np.percentile(valid, (1, 99))
+        out = np.clip((img - lo) / max(hi - lo, 1e-9), 0, 1)
+        return (out * 255).astype(np.uint8)
+
+    overlay = np.zeros((*warped.shape[:2], 3), np.uint8)
+    overlay[..., 2] = stretch(warped)      # red (BGR index 2)
+    overlay[..., 1] = stretch(reference)   # green
+    return overlay
+
+
 def generate_evaluation_report(all_metrics: dict[str, Any]) -> dict[str, Any]:
     """Compile a final evaluation report."""
     return {

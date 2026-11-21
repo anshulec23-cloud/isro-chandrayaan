@@ -1,7 +1,6 @@
 import argparse
 import sys
 import logging
-import time
 
 try:
     from rich.console import Console
@@ -106,7 +105,8 @@ def cmd_register(args):
                     ref_sensor=ref_sensor,
                     options=options
                 )
-                console.print(f"[bold green]Success![/bold green] RMSE: {result.metrics.get('rmse', 'N/A')}")
+                console.print("[bold green]Registration converged.[/bold green]")
+                console.print(_format_metrics(result))
             except Exception as e:
                 console.print(f"[bold red]Error:[/bold red] {e}")
                 sys.exit(1)
@@ -121,7 +121,8 @@ def cmd_register(args):
                 ref_sensor=ref_sensor,
                 options=options
             )
-            print(f"Success! RMSE: {result.metrics.get('rmse', 'N/A')}")
+            print("Registration converged.")
+            print(_format_metrics(result))
         except Exception as e:
             print(f"Error: {e}")
             sys.exit(1)
@@ -130,7 +131,7 @@ def cmd_register(args):
 def cmd_serve(args):
     import uvicorn
     print(f"Starting LUMEN server on {args.host}:{args.port}...")
-    uvicorn.run("lumen.api.server:app", host=args.host, port=args.port, reload=True)
+    uvicorn.run("lumen.api.server:app", host=args.host, port=args.port, reload=args.reload)
 
 
 def cmd_info(args):
@@ -139,11 +140,66 @@ def cmd_info(args):
     print("Available Matchers: SuperPoint+LightGlue, RIFT2, SIFT")
 
 
+def _format_metrics(result) -> str:
+    m = result.metrics
+    lines = [
+        f"  matches          : {m.get('inlier_count', 0)} inliers / {m.get('total_matches', 0)} candidates"
+        f" ({100 * m.get('inlier_ratio', 0.0):.1f}%)",
+        f"  fit residual RMSE: {m['rmse']:.3f} px" if "rmse" in m else "  fit residual RMSE: n/a",
+    ]
+    if "checkpoint_rmse" in m:
+        lines.append(
+            f"  checkpoint RMSE  : {m['checkpoint_rmse']:.3f} px on {m['checkpoint_count']} held-out points"
+        )
+    lines.append(f"  SSIM             : {m.get('ssim', float('nan')):.4f}")
+    lines.append(f"  runtime          : {result.elapsed_seconds:.1f} s")
+    return "\n".join(lines)
+
+
+def _load_gray(path: str):
+    import numpy as np
+    from pathlib import Path
+
+    p = Path(path)
+    if p.suffix.lower() in (".tif", ".tiff"):
+        import rasterio
+
+        with rasterio.open(p) as ds:
+            return ds.read(1).astype(np.float32)
+    import cv2
+
+    img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)
+    if img is None:
+        raise FileNotFoundError(f"Cannot read image: {p}")
+    if img.ndim == 3:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    return img.astype(np.float32)
+
+
 def cmd_evaluate(args):
-    print(f"Evaluating registration quality for {args.warped} against {args.reference}...")
-    time.sleep(1)
-    print("RMSE: 0.45 px")
-    print("SSIM: 0.92")
+    """Compare an already-warped image with its reference (same pixel grid)."""
+    import numpy as np
+    from lumen.evaluation.metrics import compute_ssim
+
+    warped = _load_gray(args.warped)
+    reference = _load_gray(args.reference)
+    if warped.shape != reference.shape:
+        print(f"Error: shapes differ {warped.shape} vs {reference.shape}; "
+              "evaluate expects the warped image on the reference grid.")
+        sys.exit(1)
+
+    valid = (warped != 0) & (reference != 0)  # ignore warp no-data borders
+    if valid.sum() < 100:
+        print("Error: fewer than 100 overlapping valid pixels.")
+        sys.exit(1)
+    a = warped[valid] - warped[valid].mean()
+    b = reference[valid] - reference[valid].mean()
+    ncc = float((a * b).sum() / (np.sqrt((a * a).sum() * (b * b).sum()) + 1e-12))
+
+    print(f"Evaluating {args.warped} against {args.reference}")
+    print(f"  valid overlap : {100 * valid.mean():.1f}% of pixels")
+    print(f"  SSIM          : {compute_ssim(warped, reference):.4f}")
+    print(f"  NCC           : {ncc:.4f}")
 
 
 def main():
@@ -166,8 +222,9 @@ def main():
     
     # Serve command
     serve_parser = subparsers.add_parser("serve", help="Start the API server")
-    serve_parser.add_argument("--host", default="0.0.0.0")
+    serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8000)
+    serve_parser.add_argument("--reload", action="store_true", help="Auto-reload on code changes (development)")
     serve_parser.set_defaults(func=cmd_serve)
     
     # Info command
