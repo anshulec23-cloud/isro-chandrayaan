@@ -18,6 +18,8 @@ class SensorType(str, Enum):
     OHRC = "OHRC"
     TMC2 = "TMC2"
     IIRS = "IIRS"
+    SELENE_TC = "SELENE_TC"
+    LROC_NAC = "LROC_NAC"
 
 
 class PipelineOptions(BaseModel):
@@ -65,6 +67,13 @@ class JobStatus(BaseModel):
     stage_name: str = ""
     metrics: Optional[Dict[str, Any]] = None
     image_url: Optional[str] = None
+    source_image_url: Optional[str] = None
+    reference_image_url: Optional[str] = None
+    checkerboard_image_url: Optional[str] = None
+    geotiff_url: Optional[str] = None
+    match_points: Optional[List[Dict[str, Any]]] = None
+    metadata: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
 
 
 class MatchPoint(BaseModel):

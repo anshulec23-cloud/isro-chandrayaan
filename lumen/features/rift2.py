@@ -10,6 +10,8 @@ import cv2
 import scipy.fft
 from scipy.ndimage import gaussian_filter
 
+from lumen.features.iirs_pan import iirs_to_pan
+
 logger = logging.getLogger(__name__)
 
 __all__ = ['compute_phase_congruency', 'compute_maximum_index_map', 
@@ -17,19 +19,35 @@ __all__ = ['compute_phase_congruency', 'compute_maximum_index_map',
 
 def compute_phase_congruency(image: np.ndarray, nscale: int = 4, norient: int = 6, 
                              min_wavelength: float = 3.0, mult: float = 2.1, 
-                             sigma_onf: float = 0.55) -> Tuple[np.ndarray, List[List[np.ndarray]]]:
+                             sigma_onf: float = 0.55, noise_k: float = 2.0) -> Tuple[np.ndarray, List[List[np.ndarray]]]:
     """
     Compute Phase Congruency using Log-Gabor filters.
+
+    If ``image`` is a hyperspectral cube (3-D, more than 3 channels), it is
+    first collapsed to a panchromatic proxy via ``iirs_to_pan``.  This is a
+    defensive guard; the primary conversion point is ``match_rift2``.
     """
+    # Defensive: collapse IIRS cube if passed directly.
+    if image.ndim == 3 and (image.shape[-1] > 3 or
+                            (image.shape[0] > 3 and image.shape[0] <= 256)):
+        image = iirs_to_pan(image)
+
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
-    image = image.astype(float) / 255.0
+    # Stretch to [0, 1] whatever the input range (this used to be a fixed
+    # "/ 255", which is wrong for the [0, 1] floats the pipeline passes in).
+    image = image.astype(float)
+    lo, hi = np.percentile(image, (0.5, 99.5))
+    image = np.clip((image - lo) / (hi - lo), 0.0, 1.0) if hi > lo else np.zeros_like(image)
     rows, cols = image.shape
     image_fft = scipy.fft.fft2(image)
     
-    # Setup grid
-    x, y = np.meshgrid(np.arange(-cols/2, cols/2), np.arange(-rows/2, rows/2))
+    # Frequency grid in cycles/pixel (range [-0.5, 0.5)).  It used to be in
+    # pixel units while the filter centre frequency 1/wavelength is in
+    # cycles/pixel, so every Log-Gabor filter evaluated to ~0 and the phase
+    # congruency map was identically zero: RIFT2 never found a keypoint.
+    x, y = np.meshgrid((np.arange(cols) - cols // 2) / cols, (np.arange(rows) - rows // 2) / rows)
     x = scipy.fft.ifftshift(x)
     y = scipy.fft.ifftshift(y)
     
@@ -40,8 +58,10 @@ def compute_phase_congruency(image: np.ndarray, nscale: int = 4, norient: int = 
     sintheta = np.sin(theta)
     costheta = np.cos(theta)
     
-    pc_map = np.zeros((rows, cols))
-    energy = np.zeros((rows, cols))
+    # Low-pass to keep the filters away from the frequency-grid corners.
+    lowpass = 1.0 / (1.0 + (radius / 0.45) ** 30)
+
+    pc_num = np.zeros((rows, cols))
     sum_an = np.zeros((rows, cols))
     
     # Pre-calculate angular filter components
@@ -68,7 +88,7 @@ def compute_phase_congruency(image: np.ndarray, nscale: int = 4, norient: int = 
             fo = 1.0 / wavelength
             
             # Radial filter
-            radial_filter = np.exp((-(np.log(radius / fo))**2) / (2 * np.log(sigma_onf)**2))
+            radial_filter = np.exp((-(np.log(radius / fo))**2) / (2 * np.log(sigma_onf)**2)) * lowpass
             radial_filter[0, 0] = 0
             
             filter = radial_filter * angular_filters[o]
@@ -89,10 +109,21 @@ def compute_phase_congruency(image: np.ndarray, nscale: int = 4, norient: int = 
         responses.append(orient_responses)
         
         energy_o = np.sqrt(sum_E**2 + sum_O**2)
-        energy += energy_o
+
+        # Noise threshold for this orientation, estimated from the smallest
+        # scale's amplitude (Kovesi 1999) instead of a fixed constant, so the
+        # result does not depend on image contrast.
+        tau = np.median(orient_responses[0]) / np.sqrt(np.log(4))
+        inv_mult = 1.0 / mult
+        est_sum_an = tau * (1 - inv_mult ** nscale) / (1 - inv_mult)
+        noise_mean = est_sum_an * np.sqrt(np.pi / 2)
+        noise_sigma = est_sum_an * np.sqrt((4 - np.pi) / 2)
+        threshold = noise_mean + noise_k * noise_sigma
+
+        pc_num += np.maximum(energy_o - threshold, 0)
         sum_an += sum_A
-        
-    pc_map = np.maximum(energy - 0.1, 0) / (sum_an + 1e-4)
+
+    pc_map = pc_num / (sum_an + 1e-4)
     return pc_map, responses
 
 def compute_maximum_index_map(responses: List[List[np.ndarray]], norient: int = 6) -> np.ndarray:
@@ -183,10 +214,35 @@ def compute_rift2_descriptor(mim: np.ndarray, keypoints: np.ndarray,
         
     return np.array(descriptors, dtype=np.float32)
 
-def match_rift2(image0: np.ndarray, image1: np.ndarray, 
+def _interior(keypoints: np.ndarray, shape: Tuple[int, int], patch_size: int = 96) -> np.ndarray:
+    """Keep keypoints whose full descriptor patch lies inside the image."""
+    half = patch_size // 2
+    rows, cols = shape
+    x, y = keypoints[:, 0].astype(int), keypoints[:, 1].astype(int)
+    keep = (x - half >= 0) & (x + half < cols) & (y - half >= 0) & (y + half < rows)
+    return keypoints[keep]
+
+
+def match_rift2(image0: np.ndarray, image1: np.ndarray,
                 num_keypoints: int = 1000) -> Dict[str, Any]:
-    """Full RIFT2 matching pipeline."""
+    """Full RIFT2 matching pipeline.
+
+    If either image is an IIRS hyperspectral cube (3-D, >3 channels), it is
+    converted to a panchromatic proxy via ``iirs_to_pan`` before phase
+    congruency computation.  See ``lumen.features.iirs_pan`` for the band
+    selection rationale and the visible-band limitation.
+    """
     start_time = time.time()
+
+    # Convert IIRS hyperspectral cubes to 2-D pan proxy.
+    # Without this, compute_phase_congruency silently passes through
+    # cv2.cvtColor which only sees the first 3 of 256 bands.
+    if image0.ndim == 3 and (image0.shape[-1] > 3 or
+                             (image0.shape[0] > 3 and image0.shape[0] <= 256)):
+        image0 = iirs_to_pan(image0)
+    if image1.ndim == 3 and (image1.shape[-1] > 3 or
+                             (image1.shape[0] > 3 and image1.shape[0] <= 256)):
+        image1 = iirs_to_pan(image1)
     
     # Compute PC and MIM
     pc0, resp0 = compute_phase_congruency(image0)
@@ -199,8 +255,14 @@ def match_rift2(image0: np.ndarray, image1: np.ndarray,
     kp0 = detect_keypoints(pc0, num_keypoints)
     kp1 = detect_keypoints(pc1, num_keypoints)
     
+    # Keypoints closer than half a descriptor patch to the border used to get
+    # an all-zero descriptor, and all-zero descriptors match each other
+    # perfectly, producing confident garbage matches.  Drop them instead.
+    kp0 = _interior(kp0, mim0.shape)
+    kp1 = _interior(kp1, mim1.shape)
+
     if len(kp0) == 0 or len(kp1) == 0:
-        return {'keypoints0': np.empty((0, 2)), 'keypoints1': np.empty((0, 2)), 
+        return {'keypoints0': np.empty((0, 2)), 'keypoints1': np.empty((0, 2)),
                 'scores': np.empty((0,)), 'num_matches': 0, 'elapsed_ms': 0}
     
     # Compute descriptors

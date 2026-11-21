@@ -24,16 +24,20 @@ dependencies = [
     "tqdm>=4.65",
     "pyyaml>=6.0",
     "httpx>=0.25",
-    "kornia>=0.7"
+    "rich>=13.0",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
+# SuperPoint + LightGlue matcher. LightGlue is not published on PyPI, so it is
+# installed from GitHub; without it DeepMatcher falls back to ORB.
+deep = [
+    "lightglue @ git+https://github.com/cvg/LightGlue.git",
+]
 dev = [
     "pytest",
     "pytest-cov",
     "ruff",
-    "mypy",
-    "pre-commit"
 ]
 
 [project.scripts]
@@ -42,3 +46,9 @@ lumen = "lumen.cli:main"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
