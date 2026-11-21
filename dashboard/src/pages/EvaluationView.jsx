@@ -149,7 +149,7 @@ export default function EvaluationView() {
             <div className="border border-outline p-4 bg-primary/10 border-primary">
               <div className="font-telemetry-data text-[11px] text-primary mb-2">REGISTRATION STATUS</div>
               <div className="font-telemetry-data text-[16px] text-primary font-bold">
-                {metrics.rmse !== undefined && metrics.rmse < 0.5 ? "SUB-PIXEL ACCURACY ACHIEVED" : "REGISTRATION COMPLETE"}
+                {metrics.rmse !== undefined && metrics.rmse < 0.5 ? "FIT RESIDUAL BELOW 0.5 PX" : "REGISTRATION COMPLETE"}
               </div>
             </div>
           </div>

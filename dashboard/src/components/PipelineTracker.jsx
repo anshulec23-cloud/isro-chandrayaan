@@ -62,7 +62,7 @@ export const PIPELINE_STAGES = [
     id: 6,
     tag: "STAGE 06",
     name: "Final Registration",
-    subtitle: "Checkerboard & Sub-pixel RMSE",
+    subtitle: "Checkerboard & held-out RMSE",
     status: "VALIDATED",
     icon: Grid3X3,
     badgeColor: "emerald"

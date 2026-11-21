@@ -1,7 +1,9 @@
+/* Tailwind v4 entry point.  The v3 "@tailwind base/components/utilities"
+   directives compile to nothing under v4, so none of Tailwind's own
+   utilities (padding, gap, widths, md:/lg: breakpoints, ...) were generated;
+   only the custom theme colours from tailwind.config.js worked. */
+@import "tailwindcss";
 @config "../tailwind.config.js";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 @layer base {
   :root {

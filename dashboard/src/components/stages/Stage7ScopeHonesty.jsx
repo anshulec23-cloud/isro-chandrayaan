@@ -96,7 +96,7 @@ export default function Stage7ScopeHonesty({ stageData = {} }) {
                 Same-Sensor Stereo Alignment (TMC-2)
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed pl-3.5">
-                Processed real 92.34% overlapping calibrated products (NCA to NCN). Achieved <strong className="text-emerald-300">1.932 px independent RMSE (~10.59 m)</strong> against 20 completely fresh, held-out SIFT tie points.
+                Processed real 92.34% overlapping calibrated products (NCA to NCN). Measured <strong className="text-emerald-300">1.96 px held-out RMSE (~10 m)</strong> on a native 5.2 m/px window (5-fold cross-validation; scripts/benchmark.py).
               </p>
             </div>
 
@@ -151,10 +151,10 @@ export default function Stage7ScopeHonesty({ stageData = {} }) {
                   <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
                   Tech 1: Lommel-Seeliger SIFT
                 </span>
-                <span className="text-emerald-400 font-mono font-bold text-[10px]">77.01% INLIERS</span>
+                <span className="text-emerald-400 font-mono font-bold text-[10px]">85.6% INLIERS</span>
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Applied pipeline's true photometric model (<code className="text-cyan-300">i=39.06°</code>) before feature detection. Integrated pipeline achieves <strong className="text-emerald-300">134 inliers / 174 matches (77.01%)</strong> with <strong className="text-emerald-300">0.84 px RMSE</strong> and SSIM 0.3756 (SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors). Mean terrain correlation jumped <strong className="text-cyan-300">0.4978 → 0.8802 (+76.8%)</strong>.
+                Applied pipeline's true photometric model (<code className="text-cyan-300">i=39.06°</code>) before feature detection. Integrated pipeline achieves <strong className="text-emerald-300">149 inliers / 174 matches (85.6%)</strong> with <strong className="text-emerald-300">0.81 px held-out RMSE at 44 m/px (~36 m)</strong> and SSIM 0.381 (SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors). Mean terrain correlation jumped <strong className="text-cyan-300">0.4978 → 0.8802 (+76.8%)</strong>.
               </p>
             </div>
 
