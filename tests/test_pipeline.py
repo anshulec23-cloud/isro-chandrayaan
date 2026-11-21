@@ -123,16 +123,67 @@ def test_pipeline_end_to_end_synthetic():
     assert result.warped_image.ndim >= 2
 
 
-def test_pipeline_ingest_stage():
-    assert True  # Covered by test_ingest_metadata.py
+def _textured_pair(t=(7.3, -4.6)):
+    """Source/reference pair where reference pixel p shows source pixel p - t."""
+    import cv2
+
+    rng = np.random.default_rng(0)
+    base = cv2.GaussianBlur(rng.random((600, 600)).astype(np.float32), (0, 0), 3)
+    base = (base - base.min()) / (base.max() - base.min())
+    src = cv2.warpAffine(
+        base, np.float32([[1, 0, -t[0]], [0, 1, -t[1]]]), (600, 600), flags=cv2.INTER_CUBIC
+    )
+    return src[50:550, 50:550], base[50:550, 50:550], np.array(t)
 
 
-def test_pipeline_preprocess_stage():
-    assert True  # Covered by test_preprocess.py
+def _run_on_arrays(src, ref, **options):
+    from lumen.pipeline.orchestrator import RegistrationPipeline
+
+    pipeline = RegistrationPipeline(config={})
+    images = iter([src, ref])
+    pipeline._ingest = lambda path, bbox=None: (next(images), {"pixel_resolution": 5.0})
+    options.setdefault("skip_orthorectify", True)
+    return pipeline.run("src", "ref", "TMC2", "TMC2", options=options)
 
 
-def test_pipeline_bridge_registration_path():
-    assert True  # Skeleton — bridge not yet fully implemented
+@pytest.mark.parametrize("method", ["deep", "sift", "rift2"])
+def test_pipeline_recovers_known_translation(method):
+    """Each matcher, end to end, must recover a known sub-pixel shift."""
+    src, ref, t = _textured_pair()
+    result = _run_on_arrays(src, ref, feature_method=method)
+    H = result.transform_matrix / result.transform_matrix[2, 2]
+    assert H[:2, 2] == pytest.approx(t, abs=0.15)
+    assert result.metrics["inlier_count"] >= 20
+    assert result.metrics["rmse"] < 0.5
+
+
+def test_pipeline_fails_loudly_without_matches():
+    """Featureless input must raise, not return an identity 'success' (old behaviour)."""
+    from lumen.pipeline.orchestrator import RegistrationFailedError
+
+    flat = np.full((300, 300), 0.5, np.float32)
+    with pytest.raises(RegistrationFailedError):
+        _run_on_arrays(flat, flat.copy(), feature_method="sift")
+
+
+def test_pipeline_checkpoint_rmse_is_reported_separately():
+    """Held-out checkpoints get their own keys and do not overwrite the fit residual."""
+    src, ref, t = _textured_pair()
+    chk_src = np.array([[100.0, 120.0], [300.0, 200.0], [250.0, 400.0]])
+    from lumen.pipeline.orchestrator import RegistrationPipeline
+
+    pipeline = RegistrationPipeline(config={})
+    images = iter([src, ref])
+    pipeline._ingest = lambda path, bbox=None: (next(images), {"pixel_resolution": 5.0})
+    result = pipeline.run(
+        "src", "ref", "TMC2", "TMC2",
+        options={"skip_orthorectify": True, "feature_method": "sift"},
+        checkpoints=(chk_src, chk_src + t),
+    )
+    m = result.metrics
+    assert m["checkpoint_count"] == 3
+    assert m["checkpoint_rmse"] < 0.3
+    assert "rmse" in m and m["rmse"] != m["checkpoint_rmse"]
 
 
 def test_pipeline_result_structure():
