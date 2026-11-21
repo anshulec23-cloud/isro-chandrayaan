@@ -31,4 +31,4 @@ The pipeline was explicitly designed and mandated to run on standard hardware wi
 
 ### Unbiased Validation
 - **Rule**: The pipeline's accuracy must not be self-referential. 
-- **Enforcement**: The final RMSE (1.932 px) reported on the dashboard is NOT the RMSE calculated during homography fitting. It is calculated by taking the finished transformation matrix and testing it against a completely fresh set of points extracted via a totally different algorithm (SIFT).
+- **Enforcement**: The accuracy quoted in the README and dashboard is the held-out RMSE from `scripts/benchmark.py`: the homography is re-fitted on 80% of the inlier tie-points and evaluated on the 20% it never saw (5-fold cross-validation). The fit residual on the points used for fitting is reported separately and never presented as accuracy. Accuracy is always also stated in ground metres, because pixel RMSE depends on the analysis grid's resolution.

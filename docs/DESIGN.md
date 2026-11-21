@@ -33,10 +33,11 @@ The left navigation sidebar presents 4 minimalist, numbered operational views wi
 - **Interactive Alpha-Blend Slider (Primary View)**: Full-bleed canvas allowing seamless blending between Reference (TMC NCN) and Warped Source (TMC NCA) across $0\%$ to $100\%$.
 - **Secondary Checkerboards**: High-resolution crater rim detail overlay and full-swath checkerboard modes.
 - **Oversized Metric Callouts**: Large amber typography highlighting:
-  - **Independent Validation RMSE**: $1.932\text{ px}$ ($\sim 10.59\text{ m}$) on 20 held-out SIFT tie points (zero matcher bias).
-  - **Matcher-Based RMSE**: $1.447\text{ px}$ ($\sim 7.93\text{ m}$) MAGSAC++ internal residual error.
-  - **SSIM**: $0.623$.
-  - **RANSAC Inlier Ratio**: $57.9\%$.
+  - **Held-out RMSE** (5-fold cross-validation): $1.96\text{ px}$ ($\approx 10\text{ m}$ at 5.2 m/px).
+  - **Fit residual** (points used for fitting): $1.85\text{ px}$.
+  - **SSIM**: $0.535$.
+  - **MAGSAC++ inlier ratio**: $24.8\%$ (92 / 371).
+  - All values from `docs/results/benchmark.json` (TMC-2 aft → nadir, native window, SIFT).
 
 ### `04. DATASETS`
 - **Physical Archive Inventory Table**: Direct scan of `data/raw/` reflecting all 8 products on disk with real file sizes computed directly from filesystem metadata (totaling $10.49\text{ GB}$).

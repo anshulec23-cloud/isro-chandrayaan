@@ -1,6 +1,6 @@
 # LUMEN Architecture
 
-The LUMEN (Lunar Multi-Sensor Registration) pipeline is designed to automate the ingestion, standardization, and sub-pixel geometric alignment of disparate orbital datasets from ISRO's Chandrayaan-2/3 missions (TMC-2, OHRC, IIRS).
+The LUMEN (Lunar Multi-Sensor Registration) pipeline is designed to automate the ingestion, standardization, and geometric alignment of disparate orbital datasets from ISRO's Chandrayaan-2/3 missions (TMC-2, OHRC, IIRS).
 
 ## Data Flow Diagram
 
@@ -19,7 +19,7 @@ graph TD
         S4[Stage 4: Photometric Normalization]
         S5[Stage 5: Multi-modal Matching]
         S6[Stage 6: Homography Alignment]
-        S7[Stage 7: Sub-pixel Evaluation]
+        S7[Stage 7: Evaluation]
     end
 
     XML --> S1
@@ -40,7 +40,7 @@ graph TD
 
 ## The 7-Stage Pipeline
 
-LUMEN employs a highly modular, 7-stage architecture to rigorously process PDS4 archives down to sub-pixel accuracy.
+LUMEN employs a modular, 7-stage architecture that processes PDS4 archives into registered GeoTIFFs. Measured accuracy is ≈ 2 px (≈ 10 m) at native TMC-2 resolution; see the README.
 
 ### 1. Ingestion & Metadata Parsing
 - **Rationale**: ISRO delivers data in the planetary standard PDS4 format (.img with .xml sidecars), while external missions like JAXA SELENE use PDS3 (.img with .lbl headers).
@@ -67,6 +67,6 @@ LUMEN employs a highly modular, 7-stage architecture to rigorously process PDS4 
 - **Rationale**: Keypoint matches always contain false positives (outliers). 
 - **Action**: Uses RANSAC (or MAGSAC++) to filter out bad matches and calculate a robust Transformation Matrix (Affine or Homography). This matrix defines how to geometrically stretch, rotate, and translate the source image to perfectly overlay the reference image.
 
-### 7. Sub-pixel Evaluation
+### 7. Evaluation
 - **Rationale**: We must mathematically prove the accuracy of the alignment.
-- **Action**: To avoid bias, the pipeline applies the calculated transformation matrix to a *completely independent* set of keypoints (e.g., extracted via a different algorithm). It calculates the Root Mean Square Error (RMSE) to prove sub-pixel accuracy, and generates checkerboard overlays for visual human verification.
+- **Action**: The pipeline reports the fit residual of the inliers, SSIM, and (when held-out checkpoints are supplied) a separate checkpoint RMSE. `scripts/benchmark.py` adds a 5-fold cross-validated RMSE and converts it to ground metres. Checkerboard and false-colour overlays are generated for visual verification.

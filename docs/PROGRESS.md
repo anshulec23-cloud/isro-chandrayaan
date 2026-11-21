@@ -1,5 +1,8 @@
 # Autonomous Session Progress Log
 
+> Historical log. Accuracy figures quoted below (e.g. "1.932 px") were superseded in
+> November 2026; current measured results are in the README and `docs/results/benchmark.json`.
+
 ## Final Summary
 - **Demo-ready:** The data ingestion pipeline can now successfully parse and orthorectify all supported sensors (TMC, OHRC, and IIRS), including a major fix to support IIRS pixel-level location images (`_d_loc_d18_ard.img`). The pipeline's structural blockers (such as the IIRS `MissingGeometryError`) are resolved, and the test suite passes (80 passed, 2 skipped due to no GPU).
 - **Still blocked:** We currently have **NO** overlapping cross-sensor data in `data/raw/`. Because the ISSDC portal strictly requires a login (which is unavailable to the agent), acquiring overlapping OHRC/TMC/IIRS pairs is impossible. Consequently, cross-sensor checkpoint validation (Task 4) and baseline comparison tables (Task 5) cannot be executed.
