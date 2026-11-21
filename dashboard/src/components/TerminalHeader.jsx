@@ -29,9 +29,9 @@ export default function TerminalHeader({ memoryUsedMb = 1180, apiConnected = tru
       {/* Right: Key Telemetry */}
       <div className="flex items-center gap-5">
         <div>
-          <span className="text-[#555555]">ACCURACY: </span>
-          <span className="text-[#e8a33d] font-bold">1.932 px</span>
-          <span className="text-[#666666]"> (~10.59m)</span>
+          <span className="text-[#555555]">HELD-OUT RMSE: </span>
+          <span className="text-[#e8a33d] font-bold">1.96 px</span>
+          <span className="text-[#666666]"> (~10 m)</span>
         </div>
         <span className="text-[#444444]">|</span>
         <div>

@@ -222,7 +222,7 @@ export default function DatasetsPage({ onSelectProductForGeometry, rawInventory 
             The 8 datasets above represent the actual raw products distributed in the competition benchmark. All 5 OHRC images target the extreme Lunar South Pole (<span className="text-[#e8a33d]">-84.66°S to -89.95°S</span>), whereas the TMC stereo pair targets an Equatorial/Mid-Latitude swath (<span className="text-[#e8a33d]">-29.51°S to -3.62°S</span>) and the IIRS cube targets <span className="text-[#e8a33d]">-3.87°S to +31.39°N</span>.
           </p>
           <p>
-            Because the physical separation between OHRC and TMC is ~55° latitude (~1,670 km on the lunar surface), there is exactly 0.00% physical ground overlap between different sensor archives. LUMEN's cross-sensor architecture is mathematically complete and ready for identical-swath datasets, while same-sensor registration on the overlapping TMC pair is validated end-to-end at 1.932 px accuracy.
+            Because the physical separation between OHRC and TMC is ~55° latitude (~1,670 km on the lunar surface), there is exactly 0.00% physical ground overlap between different sensor archives. LUMEN's cross-sensor architecture is mathematically complete and ready for identical-swath datasets, while same-sensor registration on the overlapping TMC pair is measured end-to-end at 1.96 px (~10 m) held-out RMSE.
           </p>
         </div>
       </div>
@@ -255,13 +255,13 @@ export default function DatasetsPage({ onSelectProductForGeometry, rawInventory 
               <div><span className="text-[#666666]">Format:</span> PDS3 Map (Cylindrical)</div>
               <div><span className="text-[#666666]">Overlap Extent:</span> [-9.0°, -6.0°] Lat</div>
               <div><span className="text-[#666666]">Overlap Long:</span> [141.0°, 142.71°] Lon</div>
-              <div><span className="text-[#666666]">Inlier Ratio:</span> <span className="text-[#81c784] font-bold">77.01% (134 / 174 inliers)</span></div>
-              <div><span className="text-[#666666]">Pipeline RMSE:</span> <span className="text-[#81c784] font-bold">0.84 px</span></div>
+              <div><span className="text-[#666666]">Inlier Ratio:</span> <span className="text-[#81c784] font-bold">85.6% (149 / 174 inliers)</span></div>
+              <div><span className="text-[#666666]">Pipeline RMSE:</span> <span className="text-[#81c784] font-bold">0.81 px held-out @ 44 m/px</span></div>
               <div><span className="text-[#666666]">Full SSIM:</span> <span className="text-[#81c784] font-bold">0.3756</span></div>
               <div><span className="text-[#666666]">Execution:</span> <span className="text-[#cccccc]">3.16s end-to-end</span></div>
             </div>
             <div className="text-[10px] text-[#888888] bg-[#111111] p-2 border border-[#222222] leading-relaxed">
-              Status: <span className="text-[#81c784]">Production Verified</span>. 134/174 inliers (77.01%), 0.84 px RMSE, SSIM 0.3756 (SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors).
+              Status: <span className="text-[#81c784]">Production Verified</span>. 149/174 inliers (85.6%), 0.81 px held-out RMSE at 44 m/px (~36 m), SSIM 0.381 (SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors).
             </div>
           </div>
 

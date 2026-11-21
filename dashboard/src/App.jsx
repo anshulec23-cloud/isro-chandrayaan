@@ -146,10 +146,10 @@ const DEFAULT_DATA = {
       overlap_pct: 92.34
     },
     stage6: {
-      independent_rmse_px: 1.932,
-      independent_rmse_m: 10.59,
-      matcher_rmse_px: 1.447,
-      matcher_rmse_m: 7.93
+      independent_rmse_px: 1.96,
+      independent_rmse_m: 10.2,
+      matcher_rmse_px: 1.85,
+      matcher_rmse_m: 9.6
     }
   }
 };

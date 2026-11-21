@@ -29,7 +29,7 @@ export default function Stage6Registration({ stageData = {} }) {
           title: 'Final Registered GeoTIFF // Orthorectified Output',
           subtitle: 'EPSG:4326 Warped Product carrying reference CRS',
           badge: 'GEOTIFF PREVIEW',
-          footer: 'SUB-PIXEL PROJECTIVE WARP APPLIED VIA MAGSAC++ MATRIX'
+          footer: 'PROJECTIVE WARP FROM MAGSAC++ HOMOGRAPHY'
         };
       default:
         return {};
@@ -47,7 +47,7 @@ export default function Stage6Registration({ stageData = {} }) {
             STAGE 06
           </span>
           <span className="text-[11px] font-mono text-slate-400">
-            // SUB-PIXEL EVALUATION & INDEPENDENT CHECKPOINT VALIDATION
+            // HELD-OUT (CROSS-VALIDATED) ACCURACY
           </span>
         </div>
         <h2 className="text-xl font-bold font-mono text-white tracking-wide">
@@ -72,14 +72,14 @@ export default function Stage6Registration({ stageData = {} }) {
             </div>
             <div className="flex items-baseline gap-4 font-mono">
               <div className="text-4xl lg:text-5xl font-black text-emerald-400 tracking-tight">
-                1.932 <span className="text-xl text-emerald-500/80 font-normal">px</span>
+                1.96 <span className="text-xl text-emerald-500/80 font-normal">px</span>
               </div>
               <div className="text-2xl lg:text-3xl font-bold text-slate-300">
-                ~10.59 <span className="text-lg text-slate-400 font-normal">m</span>
+                ~10.2 <span className="text-lg text-slate-400 font-normal">m</span>
               </div>
             </div>
             <p className="text-[11px] font-mono text-slate-400 mt-3 leading-relaxed border-t border-slate-800 pt-2">
-              Evaluated on 20 independent SIFT tie-points never seen during model fitting. Proves true sub-pixel accuracy on physical lunar terrain at 5.48 m/px GSD.
+              5-fold cross-validation: the homography is fitted on 80% of the 92 inlier tie-points and tested on the 20% it never saw. Native-resolution 12 x 12 km window at 5.2 m/px. Not sub-pixel: aft/nadir stereo parallax limits a single homography.
             </p>
           </div>
 
@@ -96,14 +96,14 @@ export default function Stage6Registration({ stageData = {} }) {
             </div>
             <div className="flex items-baseline gap-4 font-mono">
               <div className="text-4xl lg:text-5xl font-black text-cyan-400 tracking-tight">
-                1.447 <span className="text-xl text-cyan-500/80 font-normal">px</span>
+                1.85 <span className="text-xl text-cyan-500/80 font-normal">px</span>
               </div>
               <div className="text-2xl lg:text-3xl font-bold text-slate-300">
-                ~7.93 <span className="text-lg text-slate-400 font-normal">m</span>
+                ~9.6 <span className="text-lg text-slate-400 font-normal">m</span>
               </div>
             </div>
             <p className="text-[11px] font-mono text-slate-400 mt-3 leading-relaxed border-t border-slate-800 pt-2">
-              Residual reprojection error across inliers used to fit the homography matrix during USAC_MAGSAC estimation (~1.447–1.459 px across RANSAC iterations).
+              Residual reprojection error of the inliers that were used to fit the homography. Optimistic by construction.
             </p>
           </div>
         </div>
@@ -112,7 +112,7 @@ export default function Stage6Registration({ stageData = {} }) {
         <div className="mt-4 p-3 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 flex items-start gap-2.5">
           <span className="text-cyan-400 font-bold shrink-0">KEY FINDING:</span>
           <span>
-            Matcher-based RMSE (1.447 px) measures residual error on points used to fit the transformation. Independent RMSE (1.932 px = 10.59 m) tests that transformation on 20 completely fresh SIFT tie points never seen during fitting, confirming genuine sub-pixel accuracy without matcher bias.
+            The fit residual (1.85 px) is measured on the points used to fit the transformation. The held-out RMSE (1.96 px, ~10 m) is measured on points the fit never saw, so it is the number to quote. Source: docs/results/benchmark.json (scripts/benchmark.py).
           </span>
         </div>
       </div>
@@ -158,9 +158,9 @@ export default function Stage6Registration({ stageData = {} }) {
           </div>
 
           <div className="flex items-center gap-3 text-slate-400 text-[11px]">
-            <span>SSIM: <strong className="text-white">0.623</strong></span>
-            <span>INLIERS: <strong className="text-emerald-400">62 / 107 (57.9%)</strong></span>
-            <span>GSD: <strong className="text-cyan-400">5.48 m/px</strong></span>
+            <span>SSIM: <strong className="text-white">0.535</strong></span>
+            <span>INLIERS: <strong className="text-emerald-400">92 / 371 (24.8%)</strong></span>
+            <span>GRID: <strong className="text-cyan-400">5.2 m/px</strong></span>
           </div>
         </div>
 

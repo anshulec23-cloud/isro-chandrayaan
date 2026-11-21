@@ -63,9 +63,9 @@ export default function TelemetryHeader({ missionData }) {
           {/* Sub-Pixel Metric */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 text-slate-300">
             <ShieldCheck size={13} className="text-cyan-400" />
-            <span className="text-[10px] text-slate-400">ACCURACY:</span>
-            <span className="text-cyan-300 font-bold">1.932 px</span>
-            <span className="text-[10px] text-slate-400">(~10.59 m)</span>
+            <span className="text-[10px] text-slate-400">HELD-OUT RMSE:</span>
+            <span className="text-cyan-300 font-bold">1.96 px</span>
+            <span className="text-[10px] text-slate-400">(~10 m)</span>
           </div>
 
           {/* Clock */}

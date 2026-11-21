@@ -63,25 +63,27 @@ export default function EvaluationPage({ stageData = {} }) {
   const currentCrop = auditCrops.find(c => c.id === selectedAuditCrop) || auditCrops[0];
 
   // Stereo Metrics (Canonical Validation Run)
+  // Measured by scripts/benchmark.py -> docs/results/benchmark.json
+  // (TMC-2 aft vs nadir, native 5.2 m/px window, SIFT, 5-fold held-out RMSE).
   const stereoMetrics = {
-    independentRmsePx: 1.932,
-    independentRmseM: 10.59,
-    matcherRmsePx: 1.447,
-    matcherRmseM: 7.93,
-    ssim: 0.623,
-    inlierRatio: 0.579,
-    inliersCount: 62,
-    totalMatches: 107
+    independentRmsePx: 1.96,
+    independentRmseM: 10.2,
+    matcherRmsePx: 1.85,
+    matcherRmseM: 9.6,
+    ssim: 0.535,
+    inlierRatio: 0.248,
+    inliersCount: 92,
+    totalMatches: 371
   };
 
   // Cross-Mission Benchmark Metrics (Three Real Techniques)
   const crossMetrics = {
     technique1: {
       name: "Lommel-Seeliger + SIFT/MAGSAC++",
-      inliers: 134,
+      inliers: 149,
       total: 174,
-      inlierRatio: 0.7701,
-      rmsePx: 0.84,
+      inlierRatio: 0.8563,
+      rmsePx: 0.81,
       patchCorrBefore: 0.4978,
       patchCorrAfter: 0.8802,
       status: "SUCCESSFUL CONVERGENCE"
@@ -126,12 +128,12 @@ export default function EvaluationPage({ stageData = {} }) {
       {/* Top Header */}
       <div className="border-b border-dashed border-[#262626] pb-5 flex items-start justify-between flex-wrap gap-4">
         <div>
-          <span className="mod-tag">MOD-E0 // REGISTRATION EVALUATION & SUB-PIXEL VERIFICATION</span>
+          <span className="mod-tag">MOD-E0 // REGISTRATION EVALUATION & HELD-OUT ACCURACY</span>
           <h2 className="section-title text-base">
             03. EVALUATION & ACCURACY BENCHMARK
           </h2>
           <p className="text-xs text-[#777777] font-mono mt-1 max-w-3xl">
-            Interactive alpha-blending, checkerboard overlays, and independent checkpoint verification confirming sub-pixel alignment across same-sensor stereo and cross-mission reference imagery.
+            Interactive alpha-blending, checkerboard overlays, and held-out (cross-validated) accuracy for the alignment across same-sensor stereo and cross-mission reference imagery.
           </p>
         </div>
 
@@ -147,7 +149,7 @@ export default function EvaluationPage({ stageData = {} }) {
                   : 'text-[#888888] hover:text-[#cccccc]'
               }`}
             >
-              01. TMC STEREO (1.932 PX INDEP.)
+              01. TMC STEREO (1.96 PX HELD-OUT)
             </button>
             <button
               onClick={() => { setActivePair('cross_mission'); setActiveMode('blend'); }}
@@ -181,11 +183,11 @@ export default function EvaluationPage({ stageData = {} }) {
               <div className="flex justify-between items-center">
                 <span className="text-emerald-400 font-bold text-[11px]">T1: Lommel-Seeliger + SIFT</span>
                 <span className="text-[9px] px-1.5 py-0.2 bg-emerald-950 text-emerald-300 border border-emerald-800 rounded font-bold">
-                  77.01% INLIERS
+                  85.6% INLIERS
                 </span>
               </div>
               <p className="text-[10px] text-[#999999] leading-relaxed">
-                134 inliers / 174 matches, <strong className="text-emerald-300">0.84 px residual RMSE</strong>, SSIM 0.3756 (SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors). Patch correlation jumped from 0.4978 to 0.8802 (+76.8%).
+                149 inliers / 174 matches, <strong className="text-emerald-300">0.81 px held-out RMSE at 44 m/px (~36 m)</strong>, SSIM 0.381 (SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors). Patch correlation jumped from 0.4978 to 0.8802 (+76.8%).
               </p>
             </div>
 
@@ -229,7 +231,7 @@ export default function EvaluationPage({ stageData = {} }) {
                 : activeMode === 'checker_detail'
                 ? 'CHECKERBOARD OVERLAY // CRATER RIM DETAIL'
                 : activeMode === 'matches_vis'
-                ? 'SIFT TIE-POINT CORRESPONDENCES // 134 INLIERS OVERLAY'
+                ? 'SIFT TIE-POINT CORRESPONDENCES // INLIERS OVERLAY'
                 : 'CHECKERBOARD OVERLAY // FULL OVERLAP SWATH'}
             </h3>
           </div>
@@ -262,7 +264,7 @@ export default function EvaluationPage({ stageData = {} }) {
                       activeMode === 'matches_vis' ? 'bg-[#e8a33d] text-[#0a0a0a]' : 'text-[#888888] hover:text-[#cccccc]'
                     }`}
                   >
-                    134 TIE POINTS
+                    SIFT TIE POINTS
                   </button>
                   <button
                     onClick={() => setActiveMode('interior_audit')}
@@ -495,11 +497,11 @@ export default function EvaluationPage({ stageData = {} }) {
           <MissionImageViewer
             src="/previews/cross_mission_matches_vis.png"
             alt="SIFT Tie-Points Visualization"
-            title="SIFT Inlier Keypoint Correspondences // 134 Inliers"
+            title="SIFT Inlier Keypoint Correspondences"
             subtitle="TMC-2 Lommel-Seeliger (Left) matched against JAXA SELENE TC (Right)"
-            badge="134 TIE POINTS"
+            badge="SIFT TIE POINTS"
             height="h-[540px]"
-            footerInfo="MAGSAC++ INLIER RATIO: 77.01% • RESIDUAL ERROR: 0.84 PX"
+            footerInfo="CURRENT RUN: 149 / 174 INLIERS (85.6%) • 0.81 PX HELD-OUT @ 44 M/PX"
           />
         ) : activeMode === 'checker_detail' && activePair === 'stereo' ? (
           <MissionImageViewer
@@ -602,10 +604,10 @@ export default function EvaluationPage({ stageData = {} }) {
             <div className="bg-[#050505] p-5 border border-[#e8a33d]/60 relative">
               <span className="text-[10px] text-[#888888] uppercase tracking-wider block">SIFT MAGSAC++ INLIERS</span>
               <div className="text-4xl lg:text-5xl font-extrabold text-[#e8a33d] mt-2 tracking-tight">
-                134
+                149
               </div>
               <div className="text-base font-bold text-emerald-400 mt-1">
-                77.01% <span className="text-xs text-[#777777] font-normal">inlier ratio (134 / 174)</span>
+                85.6% <span className="text-xs text-[#777777] font-normal">inlier ratio (149 / 174)</span>
               </div>
               <div className="text-[10px] text-[#666666] mt-3 border-t border-dashed border-[#222222] pt-2">
                 Unlocked by Lommel-Seeliger photometric harmonization
@@ -614,15 +616,15 @@ export default function EvaluationPage({ stageData = {} }) {
 
             {/* Cross Card 2: Residual RMSE */}
             <div className="bg-[#050505] p-5 border border-[#262626]">
-              <span className="text-[10px] text-[#888888] uppercase tracking-wider block">RESIDUAL HOMOGRAPHY RMSE</span>
+              <span className="text-[10px] text-[#888888] uppercase tracking-wider block">HELD-OUT HOMOGRAPHY RMSE</span>
               <div className="text-4xl lg:text-5xl font-extrabold text-[#ffffff] mt-2 tracking-tight">
-                0.84 <span className="text-xl text-[#777777] font-normal">px</span>
+                0.81 <span className="text-xl text-[#777777] font-normal">px</span>
               </div>
               <div className="text-base font-bold text-[#888888] mt-1">
-                Sub-pixel <span className="text-xs text-[#555555] font-normal">projective fit</span>
+                ~36 m <span className="text-xs text-[#555555] font-normal">at the 44 m/px analysis grid</span>
               </div>
               <div className="text-[10px] text-[#666666] mt-3 border-t border-dashed border-[#222222] pt-2">
-                Evaluated over 134 spatial consensus tie points
+                5-fold cross-validated over 149 inlier tie points
               </div>
             </div>
 
@@ -673,7 +675,7 @@ export default function EvaluationPage({ stageData = {} }) {
 
           {activePair === 'stereo' ? (
             <p className="leading-relaxed text-[#aaaaaa]">
-              The internal matcher RMSE (1.447 px) measures the residual error only on feature points that were actively used to fit the projective homography. To eliminate matcher self-consistency bias, the pipeline evaluated that exact transformation matrix on 20 independent SIFT tie points extracted with a separate keypoint detector. The resulting 1.932 px (~10.59 m) RMSE proves authentic sub-pixel accuracy on physical lunar terrain at 5.48 m/px GSD.
+              The fit residual (1.85 px) is measured only on the tie points that were used to fit the homography, so it is optimistic. The held-out RMSE (1.96 px, ~10 m at 5.2 m/px) re-fits the homography on 80% of the tie points and measures the 20% it never saw (5-fold cross-validation). It is not sub-pixel: this is a 26 degree aft/nadir stereo pair, and terrain parallax cannot be absorbed by a single planar homography. Reproduce with scripts/benchmark.py.
             </p>
           ) : (
             <div className="space-y-2 text-[#aaaaaa] leading-relaxed">
@@ -684,7 +686,7 @@ export default function EvaluationPage({ stageData = {} }) {
                 <strong className="text-white">2. Ground Scale Factor Disclosure:</strong> In the primary benchmark, both rasters were cropped to the shared EPSG:4326 box and resampled to a common analysis grid, which pre-equalized the native 1.35:1 GSD difference (5.48 vs 7.40 m/px). To test if this was an artifact, an un-normalized scale experiment was executed with TMC at native 1.35× scale relative to SELENE: SIFT still achieved <strong className="text-emerald-400">75.51% inliers (222 / 294 matches)</strong> and autonomously recovered the true physical scale factor <code className="text-cyan-300">s_y = 0.7389</code> (within 0.19% of expected 0.7403).
               </p>
               <p>
-                <strong className="text-white">3. Stereoscopic Disparity vs. Pure Nadir Geometry:</strong> Cross-mission matching achieved a higher inlier ratio (77.01%) than TMC-TMC (57.9%) because <strong className="text-white">TMC-TMC is a 25° forward/backward stereo pair</strong>. Over rugged lunar crater topography without a DEM, 25° view angle disparity produces uncorrected 3D elevation parallax that violates a single 2D planar homography, causing planar RANSAC to reject more points. In contrast, both Chandrayaan-2 TMC Nadir and SELENE TC Nadir are <strong className="text-white">0° nadir sensors</strong> with zero baseline parallax; once Lommel-Seeliger normal reflectance eliminates directional shadow bias, the geometry is an almost pure 2D planar transformation.
+                <strong className="text-white">3. Stereoscopic Disparity vs. Pure Nadir Geometry:</strong> Cross-mission matching achieves a higher inlier ratio than TMC-TMC because <strong className="text-white">TMC-TMC is a 25° forward/backward stereo pair</strong>. Over rugged lunar crater topography without a DEM, 25° view angle disparity produces uncorrected 3D elevation parallax that violates a single 2D planar homography, causing planar RANSAC to reject more points. In contrast, both Chandrayaan-2 TMC Nadir and SELENE TC Nadir are <strong className="text-white">0° nadir sensors</strong> with zero baseline parallax; once Lommel-Seeliger normal reflectance eliminates directional shadow bias, the geometry is an almost pure 2D planar transformation.
               </p>
               <p>
                 <strong className="text-white">4. In-Situ Visual Confirmation &amp; SSIM Context:</strong> Switch to the <strong className="text-[#e8a33d]">INTERIOR CRATER AUDIT</strong> view above to inspect 3 independent 200×200 px interior crops. Crater rims, ejecta blankets, and maria boundaries align seamlessly without doubling or ghosting, with SSIM leaping from 0.20 to 0.55+ and cross-correlation jumping from 0.55 to 0.85+. Across the full mosaic, SSIM is 0.3756 because SSIM measures full-image photometric/structural similarity, while inlier ratio measures sparse geometric point agreement — good geometric alignment does not require matching pixel intensities across two different agencies' sensors.
