@@ -185,11 +185,11 @@ Python, NumPy, OpenCV (SIFT, ORB, MAGSAC++), scikit-image, rasterio, PyTorch (op
 SuperPoint + LightGlue), FastAPI. The dashboard is React 19 with Vite, Tailwind CSS v4 and
 three.js for the acquisition-geometry view.
 
-## Team & credits
+## Author & credits
 
-<!-- TODO(team): add team members and roles, and the SIH 2026 result. -->
-* Team: _to be added_
-* Smart India Hackathon 2026 — problem statement **SIH26166** (ISRO). Result: _to be added_
+* Designed and built solo by [@anshulec23-cloud](https://github.com/anshulec23-cloud):
+  pipeline, data ingestion, matching, evaluation, API and dashboard.
+* Built for Smart India Hackathon 2026, problem statement **SIH26166** (ISRO).
 * Chandrayaan-2 data courtesy ISRO / ISSDC (PRADAN). SELENE data courtesy JAXA.
 
 ## License
