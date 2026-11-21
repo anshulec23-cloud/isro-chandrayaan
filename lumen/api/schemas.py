@@ -73,6 +73,7 @@ class JobStatus(BaseModel):
     geotiff_url: Optional[str] = None
     match_points: Optional[List[Dict[str, Any]]] = None
     metadata: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
 
 
 class MatchPoint(BaseModel):

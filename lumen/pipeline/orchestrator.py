@@ -47,7 +47,7 @@ from pathlib import Path
 import numpy as np
 
 from lumen.ingest.pds4_parser import parse_pds4, load_binary_image
-from lumen.ingest.metadata import extract_metadata, compute_scale_ratio, get_bridge_sensor, SENSOR_SPECS
+from lumen.ingest.metadata import extract_metadata, SENSOR_SPECS
 from lumen.preprocess.radiometric import apply_clahe, normalize_to_float
 from lumen.preprocess.photometric import photometric_normalize
 from lumen.preprocess.orthorectify import (
@@ -66,11 +66,12 @@ from lumen.features.grid_sampler import GridSampler
 from lumen.geometry.outlier_reject import estimate_transform_magsac
 from lumen.geometry.subpixel import refine_subpixel
 from lumen.registration.warp import warp_image, create_registered_product
-from lumen.evaluation.metrics import compute_rmse, compute_ssim, compute_inlier_ratio, create_checkerboard
+from lumen.evaluation.metrics import compute_rmse, compute_ssim, compute_inlier_ratio, create_checkerboard, create_false_color_overlay
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "RegistrationFailedError",
     "RegistrationResult",
     "PipelineStage",
     "PipelineCallback",
@@ -79,6 +80,20 @@ __all__ = [
 
 # Maximum output dimension (px) applied AFTER orthorectification.
 _MAX_ORTHO_DIM: int = 2048
+
+# Metres per degree of arc on the lunar reference sphere (R = 1737.4 km).
+_M_PER_DEG: float = 2.0 * np.pi * 1_737_400.0 / 360.0
+
+# Pre-computed orthorectified GeoTIFFs (written by scripts/run_real_ortho_outputs.py).
+# Anchored to the repository root so results don't depend on the working directory.
+_ORTHO_CACHE_DIR: Path = Path(__file__).resolve().parents[2] / "data" / "processed" / "real_ortho_outputs"
+
+# Fewer MAGSAC++ inliers than this means the homography is not trustworthy.
+_MIN_INLIERS: int = 8
+
+
+class RegistrationFailedError(RuntimeError):
+    """Raised when matching/geometry did not produce a trustworthy transform."""
 
 
 def _save_debug_preview(image: np.ndarray, output_path: Union[str, Path], max_dim: int = 2048) -> None:
@@ -230,6 +245,10 @@ class RegistrationPipeline:
                                             Default 1e-10.
                 - 'skip_overlap_crop' : bool  — bypass overlap crop step.
                                             Implied True when skip_orthorectify=True.
+                - 'roi_lonlat'        : (min_lon, min_lat, max_lon, max_lat) — only
+                                            read and match this part of the overlap.
+                - 'min_inliers'       : int — fewer MAGSAC++ inliers raises
+                                            RegistrationFailedError (default 8).
             checkpoints: Optional held-out tie-point pairs for RMSE evaluation.
 
         Returns:
@@ -264,9 +283,20 @@ class RegistrationPipeline:
                     if src_peek.get("bbox_lonlat") and ref_peek.get("bbox_lonlat"):
                         sb, rb = src_peek["bbox_lonlat"], ref_peek["bbox_lonlat"]
                         inter = (max(sb[0], rb[0]), max(sb[1], rb[1]), min(sb[2], rb[2]), min(sb[3], rb[3]))
+                        roi = options.get("roi_lonlat")
+                        if roi is not None:
+                            # Restrict to a region of interest so a window of a
+                            # long strip can be matched at native resolution
+                            # instead of the whole overlap squeezed to max_ortho_dim.
+                            inter = (max(inter[0], roi[0]), max(inter[1], roi[1]),
+                                     min(inter[2], roi[2]), min(inter[3], roi[3]))
                         if inter[0] < inter[2] and inter[1] < inter[3]:
                             initial_bbox = inter
                             logger.info(f"Computed initial overlap window for windowed I/O: {initial_bbox}")
+                        elif roi is not None:
+                            raise NoOverlapError(f"roi_lonlat {tuple(roi)} does not intersect the pair's overlap")
+                except NoOverlapError:
+                    raise
                 except Exception as e:
                     logger.debug(f"Metadata peek skipped: {e}")
 
@@ -378,12 +408,19 @@ class RegistrationPipeline:
 
             # ── 3. FEATURES ────────────────────────────────────────────────
             self._notify_start(PipelineStage.FEATURES, f"Extracting features using method: {method}")
-            scale_ratio = options.get("scale_ratio") or (src_gsd / ref_gsd if ref_gsd > 0 else 1.0)
-            if method == "auto" and scale_ratio > 20:
-                logger.info("Scale ratio > 20, using bridge registration")
-                matches = self._bridge_feature_extraction(source_pre, ref_pre, source_sensor, ref_sensor)
-            else:
-                matches = self._extract_features(source_pre, ref_pre, method, source_sensor, ref_sensor)
+            # Both images are already resampled to the same target GSD above, so
+            # the native scale gap (e.g. OHRC 0.25 m vs TMC-2 5 m = 20:1) is
+            # absorbed by resampling, not by a separate "bridge" matcher.
+            # Hierarchical bridge registration (OHRC→TMC→IIRS through an
+            # intermediate image) is planned but not implemented.
+            native_scale = max(src_gsd, ref_gsd) / max(min(src_gsd, ref_gsd), 1e-9)
+            if native_scale > 20:
+                logger.warning(
+                    f"Native GSD ratio {native_scale:.0f}:1 — the finer image was "
+                    f"downsampled to {target_gsd_m:.2f} m before matching, so its "
+                    f"fine detail is not used."
+                )
+            matches = self._extract_features(source_pre, ref_pre, method, source_sensor, ref_sensor)
 
             sampler = GridSampler()
             mkpts0, mkpts1, mscores, stats = sampler.enforce_distribution(
@@ -404,6 +441,18 @@ class RegistrationPipeline:
                 matches, source_pre, ref_pre
             )
             self._notify_complete(PipelineStage.GEOMETRY, {"inlier_count": len(inlier_pts0)})
+
+            min_inliers = int(options.get("min_inliers", _MIN_INLIERS))
+            if len(inlier_pts0) < min_inliers:
+                # Previously the pipeline returned an identity transform and
+                # reported "success" here, so a total matching failure looked
+                # like a valid (if poor) registration.
+                raise RegistrationFailedError(
+                    f"Only {len(inlier_pts0)} MAGSAC++ inliers out of "
+                    f"{len(inlier_pts0) + len(outlier_pts0)} candidate matches "
+                    f"(need >= {min_inliers}); no trustworthy transform for "
+                    f"{source_sensor} → {ref_sensor}."
+                )
 
             # ── 5. REGISTER ────────────────────────────────────────────────
             self._notify_start(PipelineStage.REGISTER, "Warping source image")
@@ -426,7 +475,11 @@ class RegistrationPipeline:
                 if warped.shape == ref_pre.shape
                 else np.zeros_like(warped)
             )
-            overlay = np.zeros_like(warped)
+            overlay = (
+                create_false_color_overlay(warped, ref_pre)
+                if warped.shape == ref_pre.shape
+                else None
+            )
 
             match_points_list = []
             for p0, p1 in zip(inlier_pts0, inlier_pts1):
@@ -464,8 +517,8 @@ class RegistrationPipeline:
                 reference_image=ref_pre
             )
 
-        except NoOverlapError:
-            # Re-raise without wrapping — the message already names both footprints.
+        except (NoOverlapError, RegistrationFailedError):
+            # Re-raise without wrapping — the messages are already specific.
             raise
         except Exception as e:
             logger.error(f"Pipeline failed: {e}", exc_info=True)
@@ -493,7 +546,7 @@ class RegistrationPipeline:
                     return {
                         "is_orthorectified": True,
                         "bbox_lonlat": (b.left, b.bottom, b.right, b.top),
-                        "pixel_resolution": src.res[0] * 30323.0 if src.crs and src.crs.is_geographic else src.res[0],
+                        "pixel_resolution": src.res[0] * _M_PER_DEG if src.crs and src.crs.is_geographic else src.res[0],
                     }
             except Exception:
                 pass
@@ -504,7 +557,7 @@ class RegistrationPipeline:
                 stem = p.name.lower()
                 for key, tif_name in [("tmc_ncn", "tmc_ncn_ortho.tif"), ("tmc_nca", "tmc_nca_ortho.tif"), ("ohrc", "ohrc_calibrated_ortho.tif"), ("iirs", "iirs_ortho.tif")]:
                     if key in stem:
-                        tif_p = Path("data/processed/real_ortho_outputs") / tif_name
+                        tif_p = _ORTHO_CACHE_DIR / tif_name
                         if tif_p.exists():
                             import rasterio
                             with rasterio.open(tif_p) as src:
@@ -555,16 +608,22 @@ class RegistrationPipeline:
                 else:
                     img = src.read(1).astype(np.float32)
                     eff_bbox = (b.left, b.bottom, b.right, b.top)
-                res = src.res[0] * 30323.0 if src.crs and src.crs.is_geographic else src.res[0]
+                res = src.res[0] * _M_PER_DEG if src.crs and src.crs.is_geographic else src.res[0]
                 meta = {
                     "is_orthorectified": True,
                     "bbox_lonlat": eff_bbox,
                     "pixel_resolution": res,
-                    "solar_elevation": 50.94,
-                    "sun_elevation": 50.94,
-                    "solar_azimuth": 69.56,
-                    "phase_angle": 39.06,
                 }
+                # Illumination geometry is only used if the GeoTIFF carries it.
+                # (Previously every GeoTIFF was silently given the sun angles of
+                # one specific TMC-2 product, 50.94°/69.56°.)
+                tags = src.tags()
+                for key in ("solar_elevation", "solar_azimuth", "phase_angle"):
+                    if key in tags:
+                        try:
+                            meta[key] = float(tags[key])
+                        except ValueError:
+                            pass
             return img, meta
 
         # Check for pre-orthorectified GeoTIFF companion
@@ -572,7 +631,7 @@ class RegistrationPipeline:
             stem = p.name.lower()
             for key, tif_name in [("tmc_ncn", "tmc_ncn_ortho.tif"), ("tmc_nca", "tmc_nca_ortho.tif"), ("ohrc", "ohrc_calibrated_ortho.tif"), ("iirs", "iirs_ortho.tif")]:
                 if key in stem:
-                    tif_p = Path("data/processed/real_ortho_outputs") / tif_name
+                    tif_p = _ORTHO_CACHE_DIR / tif_name
                     if tif_p.exists():
                         logger.info(f"Using pre-computed orthorectified GeoTIFF {tif_name} with windowed read over {bbox}")
                         img, meta = self._ingest(tif_p, bbox=bbox)
@@ -698,7 +757,10 @@ class RegistrationPipeline:
         emi   = np.full(img_float.shape, 90.0 - view_el)
         phase = np.full(img_float.shape, phase_ang)
 
-        img_photo, _, _ = photometric_normalize(img_float, inc, emi, phase, method=photo_method)
+        if photo_method == "none":
+            img_photo = img_float
+        else:
+            img_photo, _, _ = photometric_normalize(img_float, inc, emi, phase, method=photo_method)
         clahe_out = apply_clahe(img_photo)
         if clahe_out.dtype == np.uint16:
             clahe_out = (clahe_out / 65535.0).astype(np.float32)
@@ -742,10 +804,14 @@ class RegistrationPipeline:
                 if good:
                     mkpts0 = np.float32([kp0[m.queryIdx].pt for m in good])
                     mkpts1 = np.float32([kp1[m.trainIdx].pt for m in good])
+                    # Scores are similarities (higher = better), matching the
+                    # convention of DeepMatcher/RIFT2 that GridSampler relies on.
+                    # Raw SIFT distances (lower = better) made the grid sampler
+                    # keep the *worst* match in every cell.
                     return {
                         'keypoints0': mkpts0,
                         'keypoints1': mkpts1,
-                        'scores': np.array([m.distance for m in good], dtype=np.float32),
+                        'scores': np.array([1.0 / (1.0 + m.distance) for m in good], dtype=np.float32),
                         'num_matches': len(mkpts0)
                     }
             return {'keypoints0': np.empty((0, 2), dtype=np.float32), 'keypoints1': np.empty((0, 2), dtype=np.float32), 'num_matches': 0}
@@ -774,13 +840,6 @@ class RegistrationPipeline:
             return match_rift2(image0, image1)
         else:
             raise ValueError(f"Unknown matcher: {method}")
-
-    def _bridge_feature_extraction(
-        self, image0: np.ndarray, image1: np.ndarray,
-        sensor0: str, sensor1: str
-    ) -> Dict[str, Any]:
-        logger.warning("Bridge registration logic skeleton. Falling back to direct RIFT2.")
-        return self._extract_features(image0, image1, "rift2", sensor0, sensor1)
 
     def _estimate_geometry(
         self, matches: Dict[str, Any], image0: np.ndarray, image1: np.ndarray
@@ -848,35 +907,34 @@ class RegistrationPipeline:
             "ssim": ssim_val,
         }
 
-        if len(inlier_pts0) > 0:
-            pts_src_h = np.hstack([inlier_pts0, np.ones((len(inlier_pts0), 1))])
-            pts_proj = (transform @ pts_src_h.T).T
-            pts_transformed = pts_proj[:, :2] / pts_proj[:, 2:]
-            inlier_rmse_dict = compute_rmse(inlier_pts1, pts_transformed)
-            metrics["rmse"] = inlier_rmse_dict.get("rmse", 0.0)
-            metrics["rmse_x"] = inlier_rmse_dict.get("rmse_x", 0.0)
-            metrics["rmse_y"] = inlier_rmse_dict.get("rmse_y", 0.0)
+        def project(pts: np.ndarray) -> np.ndarray:
+            pts_h = np.hstack([pts, np.ones((len(pts), 1))])
+            proj = (transform @ pts_h.T).T
+            return proj[:, :2] / proj[:, 2:]
 
-        if checkpoints is not None:
-            if isinstance(checkpoints, tuple) and len(checkpoints) == 2:
-                pts_src_chk, pts_ref_chk = checkpoints
-                pts_src_chk = np.asarray(pts_src_chk, dtype=np.float64)
-                pts_ref_chk = np.asarray(pts_ref_chk, dtype=np.float64)
-                if len(pts_src_chk) > 0 and len(pts_ref_chk) > 0:
-                    pts_src_h = np.hstack([pts_src_chk, np.ones((len(pts_src_chk), 1))])
-                    pts_proj = (transform @ pts_src_h.T).T
-                    pts_transformed = pts_proj[:, :2] / pts_proj[:, 2:]
-                    metrics.update(compute_rmse(pts_ref_chk, pts_transformed))
-            elif isinstance(checkpoints, dict):
-                pts_ref_chk = checkpoints.get('pts_ref', checkpoints.get('reference'))
-                pts_src_chk = checkpoints.get('pts_src', checkpoints.get('source'))
-                if pts_ref_chk is not None and pts_src_chk is not None:
-                    pts_src_chk = np.asarray(pts_src_chk, dtype=np.float64)
-                    pts_ref_chk = np.asarray(pts_ref_chk, dtype=np.float64)
-                    if len(pts_src_chk) > 0 and len(pts_ref_chk) > 0:
-                        pts_src_h = np.hstack([pts_src_chk, np.ones((len(pts_src_chk), 1))])
-                        pts_proj = (transform @ pts_src_h.T).T
-                        pts_transformed = pts_proj[:, :2] / pts_proj[:, 2:]
-                        metrics.update(compute_rmse(pts_ref_chk, pts_transformed))
+        # "rmse" is the fit residual on the inliers that produced the transform.
+        # It is optimistic by construction; the honest accuracy number is
+        # "checkpoint_rmse" below, measured on points never used for fitting.
+        if len(inlier_pts0) > 0:
+            fit = compute_rmse(inlier_pts1, project(np.asarray(inlier_pts0, dtype=np.float64)))
+            metrics["rmse"] = fit["rmse"]
+            metrics["rmse_x"] = fit["rmse_x"]
+            metrics["rmse_y"] = fit["rmse_y"]
+
+        pts_src_chk = pts_ref_chk = None
+        if isinstance(checkpoints, tuple) and len(checkpoints) == 2:
+            pts_src_chk, pts_ref_chk = checkpoints
+        elif isinstance(checkpoints, dict):
+            pts_ref_chk = checkpoints.get('pts_ref', checkpoints.get('reference'))
+            pts_src_chk = checkpoints.get('pts_src', checkpoints.get('source'))
+        if pts_src_chk is not None and pts_ref_chk is not None:
+            pts_src_chk = np.asarray(pts_src_chk, dtype=np.float64).reshape(-1, 2)
+            pts_ref_chk = np.asarray(pts_ref_chk, dtype=np.float64).reshape(-1, 2)
+            if len(pts_src_chk) > 0 and len(pts_src_chk) == len(pts_ref_chk):
+                chk = compute_rmse(pts_ref_chk, project(pts_src_chk))
+                metrics["checkpoint_rmse"] = chk["rmse"]
+                metrics["checkpoint_rmse_x"] = chk["rmse_x"]
+                metrics["checkpoint_rmse_y"] = chk["rmse_y"]
+                metrics["checkpoint_count"] = int(len(pts_src_chk))
 
         return metrics

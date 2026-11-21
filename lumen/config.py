@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 import yaml
-from pydantic import Field, ConfigDict
-from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 __all__ = ["Settings", "get_settings"]
 
@@ -18,11 +18,8 @@ class Settings(BaseSettings):
     """Global configuration settings for LUMEN."""
     
     # Logging
-    LOG_LEVEL: str = Field(default="INFO", env="LUMEN_LOG_LEVEL")
-    LOG_FORMAT: str = Field(
-        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        env="LUMEN_LOG_FORMAT"
-    )
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     
     # Paths
     BASE_DIR: Path = Field(default_factory=lambda: Path(__file__).parent.parent)
@@ -35,7 +32,11 @@ class Settings(BaseSettings):
     # Sensor configs
     SENSORS: Dict[str, SensorConfig] = Field(default_factory=dict)
 
-    model_config = ConfigDict(
+    # Every field can be overridden with a LUMEN_-prefixed environment variable,
+    # e.g. LUMEN_LOG_LEVEL=DEBUG or LUMEN_DATA_DIR=D:/lunar-data.
+    # (pydantic v2 ignores the old Field(env=...) form, so overrides never worked.)
+    model_config = SettingsConfigDict(
+        env_prefix="LUMEN_",
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore"
