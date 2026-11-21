@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { ZoomIn, ZoomOut, RotateCcw, CheckCircle2, Award, Zap, Compass, RefreshCw } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Zap } from 'lucide-react';
 import MissionImageViewer from '../components/MissionImageViewer';
 
-export default function EvaluationPage({ stageData = {} }) {
+export default function EvaluationPage() {
   // Active Pair: 'stereo' (TMC-to-TMC) or 'cross_mission' (TMC-to-SELENE)
   const [activePair, setActivePair] = useState('stereo');
   const [blendAlpha, setBlendAlpha] = useState(50); // 0 to 100%
@@ -76,42 +76,6 @@ export default function EvaluationPage({ stageData = {} }) {
     totalMatches: 371
   };
 
-  // Cross-Mission Benchmark Metrics (Three Real Techniques)
-  const crossMetrics = {
-    technique1: {
-      name: "Lommel-Seeliger + SIFT/MAGSAC++",
-      inliers: 149,
-      total: 174,
-      inlierRatio: 0.8563,
-      rmsePx: 0.81,
-      patchCorrBefore: 0.4978,
-      patchCorrAfter: 0.8802,
-      status: "SUCCESSFUL CONVERGENCE"
-    },
-    technique2: {
-      name: "Mutual Information (MI) Maximization",
-      initialMi: 0.5496,
-      optMi: 0.6863,
-      miGainPct: 24.87,
-      initialNmi: 1.0544,
-      optNmi: 1.0687,
-      dx: -6.04,
-      dy: -0.25,
-      theta: 0.013,
-      scale: 0.9977,
-      status: "CONFIRMED ALIGNMENT"
-    },
-    technique3: {
-      name: "Crater Structural Point-Set RANSAC",
-      tmcCraters: 3293,
-      seleneCraters: 6778,
-      candidates: 1895,
-      inliers: 6,
-      inlierRatio: 0.0032,
-      rmsePx: 6.49,
-      status: "STRUCTURAL LIMITATION"
-    }
-  };
 
   // Previews
   const stereoRef = "/previews/TMC_to_TMC_ref_04_photometric_norm.png";
@@ -538,7 +502,7 @@ export default function EvaluationPage({ stageData = {} }) {
             </h3>
           </div>
           <span className="text-xs font-mono text-[#888888]">
-            STATUS: <strong className="text-emerald-400">MATHEMATICALLY CONVERGED</strong>
+            STATUS: <strong className="text-emerald-400">CONVERGED (MEASURED)</strong>
           </span>
         </div>
 
@@ -546,7 +510,7 @@ export default function EvaluationPage({ stageData = {} }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
             {/* Stereo Card 1 */}
             <div className="bg-[#050505] p-5 border border-[#e8a33d]/60 relative">
-              <span className="text-[10px] text-[#888888] uppercase tracking-wider block">INDEPENDENT VALIDATION RMSE</span>
+              <span className="text-[10px] text-[#888888] uppercase tracking-wider block">HELD-OUT RMSE</span>
               <div className="text-4xl lg:text-5xl font-extrabold text-[#e8a33d] mt-2 tracking-tight">
                 {stereoMetrics.independentRmsePx} <span className="text-xl text-[#ffffff] font-normal">px</span>
               </div>
@@ -554,13 +518,13 @@ export default function EvaluationPage({ stageData = {} }) {
                 ~{stereoMetrics.independentRmseM} <span className="text-xs text-[#777777] font-normal">meters on ground</span>
               </div>
               <div className="text-[10px] text-[#666666] mt-3 border-t border-dashed border-[#222222] pt-2">
-                Cross-validated against 20 unseen SIFT tie points (zero matcher bias)
+                5-fold cross-validation on tie points the fit never saw
               </div>
             </div>
 
             {/* Stereo Card 2 */}
             <div className="bg-[#050505] p-5 border border-[#262626]">
-              <span className="text-[10px] text-[#888888] uppercase tracking-wider block">MATCHER-BASED RMSE</span>
+              <span className="text-[10px] text-[#888888] uppercase tracking-wider block">FIT RESIDUAL RMSE</span>
               <div className="text-4xl lg:text-5xl font-extrabold text-[#ffffff] mt-2 tracking-tight">
                 {stereoMetrics.matcherRmsePx} <span className="text-xl text-[#777777] font-normal">px</span>
               </div>
@@ -568,7 +532,7 @@ export default function EvaluationPage({ stageData = {} }) {
                 ~{stereoMetrics.matcherRmseM} <span className="text-xs text-[#555555] font-normal">meters</span>
               </div>
               <div className="text-[10px] text-[#666666] mt-3 border-t border-dashed border-[#222222] pt-2">
-                Internal MAGSAC++ inlier residual error
+                On the inliers used to fit the homography
               </div>
             </div>
 
@@ -580,7 +544,7 @@ export default function EvaluationPage({ stageData = {} }) {
               </div>
               <div className="text-xs font-semibold text-[#888888] mt-1">Photometric structural correlation</div>
               <div className="text-[10px] text-[#666666] mt-3 border-t border-dashed border-[#222222] pt-2">
-                Evaluated across shared 92.34% overlap area
+                Native 12 x 12 km window at 5.2 m/px
               </div>
             </div>
 

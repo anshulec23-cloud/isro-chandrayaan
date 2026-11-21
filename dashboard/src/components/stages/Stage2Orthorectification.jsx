@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mountain, ArrowRight, Compass, ShieldAlert, Cpu, Sparkles } from 'lucide-react';
+import { Compass, ShieldAlert } from 'lucide-react';
 import MissionImageViewer from '../MissionImageViewer';
 
 export default function Stage2Orthorectification({ stageData = {} }) {

@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, Line } from '@react-three/drei';
 import * as THREE from 'three';
 
-function SpacecraftFrustum({ emissionAngle = 0, gsd = 5.48, sensor = 'TMC-2' }) {
+function SpacecraftFrustum({ emissionAngle = 0, sensor = 'TMC-2' }) {
   const ref = useRef();
   
   // Real geometric parameters:

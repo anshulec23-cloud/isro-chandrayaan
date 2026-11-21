@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Database, Eye, Compass, Calendar, Sun, Maximize2, Layers } from 'lucide-react';
+import { Database } from 'lucide-react';
 import MissionImageViewer from '../MissionImageViewer';
 
 export default function Stage1Ingestion({ products = [] }) {

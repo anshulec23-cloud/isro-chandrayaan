@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { Sparkles, CheckCircle2, AlertTriangle, Filter, Target, Cpu, RefreshCw } from 'lucide-react';
+import { Filter } from 'lucide-react';
 import MissionImageViewer from '../MissionImageViewer';
 
-export default function Stage4Matching({ stageData = {} }) {
+export default function Stage4Matching() {
   const [viewMode, setViewMode] = useState('detail'); // 'detail' or 'full'
-  const [activeFilter, setActiveFilter] = useState('inliers'); // 'inliers' or 'candidates'
 
   const isDetail = viewMode === 'detail';
 
@@ -62,15 +61,15 @@ export default function Stage4Matching({ stageData = {} }) {
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-5 font-mono text-xs">
           <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
             <span className="text-[10px] text-slate-500 uppercase block">Raw Candidates</span>
-            <span className="text-amber-400 font-bold text-base block mt-0.5">108 matches</span>
+            <span className="text-amber-400 font-bold text-base block mt-0.5">371 matches</span>
           </div>
           <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
             <span className="text-[10px] text-slate-500 uppercase block">MAGSAC++ Inliers</span>
-            <span className="text-emerald-400 font-bold text-base block mt-0.5">71 verified</span>
+            <span className="text-emerald-400 font-bold text-base block mt-0.5">92 verified</span>
           </div>
           <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
             <span className="text-[10px] text-slate-500 uppercase block">Inlier Ratio</span>
-            <span className="text-cyan-300 font-bold text-base block mt-0.5">65.7%</span>
+            <span className="text-cyan-300 font-bold text-base block mt-0.5">24.8%</span>
           </div>
           <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
             <span className="text-[10px] text-slate-500 uppercase block">Estimator</span>
@@ -90,7 +89,7 @@ export default function Stage4Matching({ stageData = {} }) {
           <div className="flex items-center justify-between px-1 font-mono text-xs">
             <span className="text-amber-400 font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-              VIEW A: RAW CANDIDATES (108 MATCHES)
+              VIEW A: RAW CANDIDATES (371 MATCHES)
             </span>
             <span className="text-slate-500 text-[11px]">Includes Outliers & Cross-Talk</span>
           </div>
@@ -98,7 +97,7 @@ export default function Stage4Matching({ stageData = {} }) {
             src={candidatesSrc}
             alt="Raw candidate matches"
             title="Raw Candidates // Pre-filtering"
-            subtitle="DeepMatcher + Grid Sampler"
+            subtitle="SIFT + Grid Sampler"
             badge="MESSY CANDIDATES"
             height="h-[520px]"
             footerInfo="YELLOW/AMBER TIE-LINES LINK CORRESPONDING KEYPOINTS"
@@ -110,7 +109,7 @@ export default function Stage4Matching({ stageData = {} }) {
           <div className="flex items-center justify-between px-1 font-mono text-xs">
             <span className="text-emerald-400 font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-              VIEW B: MAGSAC++ INLIERS (71 VERIFIED)
+              VIEW B: MAGSAC++ INLIERS (92 VERIFIED)
             </span>
             <span className="text-emerald-400 text-[11px]">Consistent Geometric Flow</span>
           </div>

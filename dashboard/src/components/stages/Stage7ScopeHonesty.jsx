@@ -1,7 +1,7 @@
 import React from 'react';
-import { ShieldCheck, Layers, MapPin, AlertCircle, Compass, CheckCircle2, Award, Info, Database } from 'lucide-react';
+import { Layers, AlertCircle, Compass, CheckCircle2, Database } from 'lucide-react';
 
-export default function Stage7ScopeHonesty({ stageData = {} }) {
+export default function Stage7ScopeHonesty() {
   const products = [
     {
       sensor: "OHRC Calibrated",

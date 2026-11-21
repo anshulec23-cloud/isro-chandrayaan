@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Grid3X3, CheckCircle2, ShieldCheck, Award, Eye, Layers, Maximize2 } from 'lucide-react';
+import { Grid3X3, ShieldCheck } from 'lucide-react';
 import MissionImageViewer from '../MissionImageViewer';
 
-export default function Stage6Registration({ stageData = {} }) {
+export default function Stage6Registration() {
   const [activeView, setActiveView] = useState('detail'); // 'detail', 'full', 'geotiff'
 
   const getActiveImage = () => {

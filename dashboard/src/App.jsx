@@ -136,9 +136,9 @@ const DEFAULT_DATA = {
       flat_plate_incidence_deg: 39.06
     },
     stage4: {
-      total_candidates: 108,
-      inliers_count: 71,
-      inlier_ratio: 0.657
+      total_candidates: 371,
+      inliers_count: 92,
+      inlier_ratio: 0.248
     },
     stage5: {
       source_time: "2026-08-13T06:27:37.8526Z",
@@ -182,7 +182,7 @@ export default function App() {
     }
   };
 
-  const handleSelectProductForGeometry = (productId) => {
+  const handleSelectProductForGeometry = (_productId) => {
     setActivePage(1);
     if (mainRef.current) {
       mainRef.current.scrollTop = 0;

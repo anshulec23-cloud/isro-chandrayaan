@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Sun, Layers, Sparkles, Sliders, ToggleLeft, ToggleRight, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Sun, AlertTriangle } from 'lucide-react';
 import MissionImageViewer from '../MissionImageViewer';
 
-export default function Stage3Photometric({ stageData = {} }) {
+export default function Stage3Photometric() {
   const [viewMode, setViewMode] = useState('detail'); // 'detail' or 'full'
 
   const isDetail = viewMode === 'detail';

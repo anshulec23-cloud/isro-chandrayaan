@@ -1,8 +1,8 @@
 import React from 'react';
-import { SplitSquareVertical, Clock, Sun, Compass, Camera, AlertCircle } from 'lucide-react';
+import { SplitSquareVertical, Camera } from 'lucide-react';
 import MissionImageViewer from '../MissionImageViewer';
 
-export default function Stage5SamePlaceDifferentLook({ stageData = {} }) {
+export default function Stage5SamePlaceDifferentLook() {
   return (
     <div className="space-y-6">
       {/* Stage Header */}
