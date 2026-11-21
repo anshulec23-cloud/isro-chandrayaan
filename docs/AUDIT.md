@@ -1,5 +1,21 @@
 # LUMEN Self-Audit & Handoff Report
 
+> **Correction (November 2026).** Several figures below were superseded by a re-audit; the
+> current measured numbers are in the README and `docs/results/benchmark.json`
+> (`scripts/benchmark.py`). In particular:
+> * "1.932 px ≈ 10.59 m" converted pixels at the native 5.48 m GSD, but that run matched on the
+>   whole overlap resampled to ~332 m/px, so its ground error was ~550–630 m. At native
+>   resolution the held-out RMSE is 1.96 px ≈ 10 m. None of the results are sub-pixel at native
+>   resolution.
+> * The TMC-2 → SELENE "0.84 px" is at a 44 m/px grid (~36 m on the ground); it reproduces as
+>   149/174 inliers, 0.81 px held-out.
+> * Lommel-Seeliger normalisation did not "unlock" cross-mission matching: with scene-constant
+>   angles it is a uniform gain that CLAHE removes; results are identical with it disabled.
+> * RIFT2 never produced keypoints before the November fix (frequency-grid unit bug), and the
+>   subpixel refiner made points slightly worse (integer truncation); both are fixed and tested.
+> * 29 of the 82 tests were `assert True` placeholders; they have been replaced.
+
+
 This document answers exactly what the current state of the LUMEN project is, what works, what doesn't, and what a new developer needs to know to continue.
 
 ## 1. What Works End-to-End (Validated)
