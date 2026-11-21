@@ -1,0 +1,305 @@
+{
+  "generated": "2026-11-21 22:50:30",
+  "device": "CPU: 12th Gen Intel(R) Core(TM) i5-12450H",
+  "python": "3.11.9",
+  "opencv": "5.1.0",
+  "runs": [
+    {
+      "pair": "tmc_aft_vs_nadir",
+      "mode": "full_overlap",
+      "method": "deep",
+      "matcher_mode": "orb (lightglue not installed)",
+      "source": "ch2_tmc_nca_20260813T0627378526_d_img_d18",
+      "reference": "ch2_tmc_ncn_20260813T0627378557_d_img_d18",
+      "candidates": 90,
+      "inliers": 51,
+      "inlier_ratio": 0.5667,
+      "fit_rmse_px": 1.703,
+      "heldout_rmse_px": 1.902,
+      "heldout_rmse_x_px": 1.053,
+      "heldout_rmse_y_px": 1.584,
+      "heldout_points": 51,
+      "analysis_m_per_px": 332.51,
+      "heldout_rmse_m": 632.4,
+      "native_gsd_m": 5.48,
+      "ssim": 0.1926,
+      "analysis_grid_px": [
+        2048,
+        152
+      ],
+      "overlap_bbox_lonlat": [
+        140.9563,
+        -27.8667,
+        142.6948,
+        -5.4097
+      ],
+      "runtime_s": 54.0
+    },
+    {
+      "pair": "tmc_aft_vs_nadir",
+      "mode": "full_overlap",
+      "method": "sift",
+      "matcher_mode": "sift",
+      "source": "ch2_tmc_nca_20260813T0627378526_d_img_d18",
+      "reference": "ch2_tmc_ncn_20260813T0627378557_d_img_d18",
+      "candidates": 247,
+      "inliers": 187,
+      "inlier_ratio": 0.7571,
+      "fit_rmse_px": 1.612,
+      "heldout_rmse_px": 1.657,
+      "heldout_rmse_x_px": 0.52,
+      "heldout_rmse_y_px": 1.573,
+      "heldout_points": 187,
+      "analysis_m_per_px": 332.51,
+      "heldout_rmse_m": 550.8,
+      "native_gsd_m": 5.48,
+      "ssim": 0.2404,
+      "analysis_grid_px": [
+        2048,
+        152
+      ],
+      "overlap_bbox_lonlat": [
+        140.9563,
+        -27.8667,
+        142.6948,
+        -5.4097
+      ],
+      "runtime_s": 48.9
+    },
+    {
+      "pair": "tmc_aft_vs_nadir",
+      "mode": "full_overlap",
+      "method": "rift2",
+      "matcher_mode": "rift2",
+      "source": "ch2_tmc_nca_20260813T0627378526_d_img_d18",
+      "reference": "ch2_tmc_ncn_20260813T0627378557_d_img_d18",
+      "candidates": 154,
+      "inliers": 113,
+      "inlier_ratio": 0.7338,
+      "fit_rmse_px": 1.563,
+      "heldout_rmse_px": 1.633,
+      "heldout_rmse_x_px": 0.784,
+      "heldout_rmse_y_px": 1.432,
+      "heldout_points": 113,
+      "analysis_m_per_px": 332.51,
+      "heldout_rmse_m": 542.8,
+      "native_gsd_m": 5.48,
+      "ssim": 0.2463,
+      "analysis_grid_px": [
+        2048,
+        152
+      ],
+      "overlap_bbox_lonlat": [
+        140.9563,
+        -27.8667,
+        142.6948,
+        -5.4097
+      ],
+      "runtime_s": 47.6
+    },
+    {
+      "pair": "tmc_aft_vs_nadir",
+      "mode": "native_window",
+      "method": "deep",
+      "matcher_mode": "orb (lightglue not installed)",
+      "source": "ch2_tmc_nca_20260813T0627378526_d_img_d18",
+      "reference": "ch2_tmc_ncn_20260813T0627378557_d_img_d18",
+      "candidates": 342,
+      "inliers": 62,
+      "inlier_ratio": 0.1813,
+      "fit_rmse_px": 1.754,
+      "heldout_rmse_px": 1.869,
+      "heldout_rmse_x_px": 0.876,
+      "heldout_rmse_y_px": 1.651,
+      "heldout_points": 62,
+      "analysis_m_per_px": 5.22,
+      "heldout_rmse_m": 9.8,
+      "native_gsd_m": 5.48,
+      "ssim": 0.5338,
+      "analysis_grid_px": [
+        2324,
+        2334
+      ],
+      "overlap_bbox_lonlat": [
+        141.6,
+        -17.2,
+        142.02,
+        -16.8
+      ],
+      "runtime_s": 3.4
+    },
+    {
+      "pair": "tmc_aft_vs_nadir",
+      "mode": "native_window",
+      "method": "sift",
+      "matcher_mode": "sift",
+      "source": "ch2_tmc_nca_20260813T0627378526_d_img_d18",
+      "reference": "ch2_tmc_ncn_20260813T0627378557_d_img_d18",
+      "candidates": 371,
+      "inliers": 92,
+      "inlier_ratio": 0.248,
+      "fit_rmse_px": 1.846,
+      "heldout_rmse_px": 1.96,
+      "heldout_rmse_x_px": 0.451,
+      "heldout_rmse_y_px": 1.907,
+      "heldout_points": 92,
+      "analysis_m_per_px": 5.22,
+      "heldout_rmse_m": 10.2,
+      "native_gsd_m": 5.48,
+      "ssim": 0.535,
+      "analysis_grid_px": [
+        2324,
+        2334
+      ],
+      "overlap_bbox_lonlat": [
+        141.6,
+        -17.2,
+        142.02,
+        -16.8
+      ],
+      "runtime_s": 4.5
+    },
+    {
+      "pair": "tmc_aft_vs_nadir",
+      "mode": "native_window",
+      "method": "rift2",
+      "error": "Only 7 MAGSAC++ inliers out of 95 candidate matches (need >= 8); no trustworthy transform for TMC2 \u2192 TMC2."
+    },
+    {
+      "pair": "tmc_vs_selene_tc",
+      "mode": "full_overlap",
+      "method": "deep",
+      "matcher_mode": "orb (lightglue not installed)",
+      "source": "ch2_tmc_ncn_20260813T0627378557_d_img_d18",
+      "reference": "TCO_MAP_02_S06E141S09E144SC",
+      "candidates": 209,
+      "inliers": 81,
+      "inlier_ratio": 0.3876,
+      "fit_rmse_px": 1.177,
+      "heldout_rmse_px": 1.229,
+      "heldout_rmse_x_px": 1.035,
+      "heldout_rmse_y_px": 0.663,
+      "heldout_points": 81,
+      "analysis_m_per_px": 44.42,
+      "heldout_rmse_m": 54.6,
+      "native_gsd_m": 7.4,
+      "ssim": 0.3813,
+      "analysis_grid_px": [
+        2048,
+        1156
+      ],
+      "overlap_bbox_lonlat": [
+        141.0,
+        -8.9998,
+        142.7079,
+        -6.0
+      ],
+      "runtime_s": 5.1
+    },
+    {
+      "pair": "tmc_vs_selene_tc",
+      "mode": "full_overlap",
+      "method": "sift",
+      "matcher_mode": "sift",
+      "source": "ch2_tmc_ncn_20260813T0627378557_d_img_d18",
+      "reference": "TCO_MAP_02_S06E141S09E144SC",
+      "candidates": 174,
+      "inliers": 149,
+      "inlier_ratio": 0.8563,
+      "fit_rmse_px": 0.794,
+      "heldout_rmse_px": 0.814,
+      "heldout_rmse_x_px": 0.772,
+      "heldout_rmse_y_px": 0.258,
+      "heldout_points": 149,
+      "analysis_m_per_px": 44.42,
+      "heldout_rmse_m": 36.2,
+      "native_gsd_m": 7.4,
+      "ssim": 0.3809,
+      "analysis_grid_px": [
+        2048,
+        1156
+      ],
+      "overlap_bbox_lonlat": [
+        141.0,
+        -8.9998,
+        142.7079,
+        -6.0
+      ],
+      "runtime_s": 4.3
+    },
+    {
+      "pair": "tmc_vs_selene_tc",
+      "mode": "full_overlap",
+      "method": "rift2",
+      "error": "Only 5 MAGSAC++ inliers out of 96 candidate matches (need >= 8); no trustworthy transform for TMC2 \u2192 SELENE_TC."
+    },
+    {
+      "pair": "tmc_vs_selene_tc",
+      "mode": "native_window",
+      "method": "deep",
+      "matcher_mode": "orb (lightglue not installed)",
+      "source": "ch2_tmc_ncn_20260813T0627378557_d_img_d18",
+      "reference": "TCO_MAP_02_S06E141S09E144SC",
+      "candidates": 335,
+      "inliers": 81,
+      "inlier_ratio": 0.2418,
+      "fit_rmse_px": 1.769,
+      "heldout_rmse_px": 1.884,
+      "heldout_rmse_x_px": 1.2,
+      "heldout_rmse_y_px": 1.452,
+      "heldout_points": 81,
+      "analysis_m_per_px": 5.48,
+      "heldout_rmse_m": 10.3,
+      "native_gsd_m": 7.4,
+      "ssim": 0.4126,
+      "analysis_grid_px": [
+        2213,
+        2194
+      ],
+      "overlap_bbox_lonlat": [
+        141.8,
+        -7.7,
+        142.2,
+        -7.3
+      ],
+      "runtime_s": 2.3
+    },
+    {
+      "pair": "tmc_vs_selene_tc",
+      "mode": "native_window",
+      "method": "sift",
+      "matcher_mode": "sift",
+      "source": "ch2_tmc_ncn_20260813T0627378557_d_img_d18",
+      "reference": "TCO_MAP_02_S06E141S09E144SC",
+      "candidates": 145,
+      "inliers": 62,
+      "inlier_ratio": 0.4276,
+      "fit_rmse_px": 1.085,
+      "heldout_rmse_px": 1.857,
+      "heldout_rmse_x_px": 0.861,
+      "heldout_rmse_y_px": 1.645,
+      "heldout_points": 62,
+      "analysis_m_per_px": 5.48,
+      "heldout_rmse_m": 10.2,
+      "native_gsd_m": 7.4,
+      "ssim": 0.419,
+      "analysis_grid_px": [
+        2213,
+        2194
+      ],
+      "overlap_bbox_lonlat": [
+        141.8,
+        -7.7,
+        142.2,
+        -7.3
+      ],
+      "runtime_s": 3.2
+    },
+    {
+      "pair": "tmc_vs_selene_tc",
+      "mode": "native_window",
+      "method": "rift2",
+      "error": "Only 4 MAGSAC++ inliers out of 41 candidate matches (need >= 8); no trustworthy transform for TMC2 \u2192 SELENE_TC."
+    }
+  ]
+}
